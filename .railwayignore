@@ -1,0 +1,8 @@
+node_modules
+android
+.env*
+*.apk
+*.aab
+public/gemmi-source.*
+.git
+.DS_Store

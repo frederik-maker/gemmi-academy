@@ -1,0 +1,44 @@
+{
+  "name": "gemmi-academy",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "preview": "vite preview --host",
+    "android:init": "cap add android",
+    "android:sync": "npm run build && cap sync android",
+    "android:open": "cap open android",
+    "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug && echo APK at android/app/build/outputs/apk/debug/app-debug.apk",
+    "android:aab": "npm run android:sync && cd android && ./gradlew bundleRelease && echo AAB at android/app/build/outputs/bundle/release/app-release.aab"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.95.2",
+    "@capacitor/android": "^8.3.3",
+    "@capacitor/cli": "^8.3.3",
+    "@capacitor/core": "^8.3.3",
+    "@google/genai": "^2.1.0",
+    "compression": "^1.8.1",
+    "express": "^5.2.1",
+    "framer-motion": "^11.5.4",
+    "katex": "^0.16.45",
+    "lucide-react": "^0.445.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-katex": "^3.1.0",
+    "react-router-dom": "^6.26.2",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13",
+    "vite": "^5.4.8"
+  }
+}

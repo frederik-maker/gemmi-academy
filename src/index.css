@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Nunito', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  background: #ffffff;
+  color: #0b1530;
+  overscroll-behavior-y: none;
+}
+
+@layer components {
+  .btn-cartoon {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl font-extrabold uppercase tracking-wide text-sm transition-all duration-150 active:translate-y-1 active:shadow-none;
+    box-shadow: 0 5px 0 0 rgba(0,0,0,0.18);
+  }
+  .btn-cartoon:disabled {
+    box-shadow: 0 3px 0 0 rgba(0,0,0,0.06);
+  }
+  .btn-cartoon.btn-disabled,
+  .btn-cartoon:disabled {
+    @apply bg-ink-100 text-ink-400 cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn-cartoon bg-steppe-500 text-white hover:bg-steppe-600 px-6 py-3;
+  }
+  .btn-success {
+    @apply btn-cartoon bg-leaf-400 text-white hover:bg-leaf-500 px-6 py-3;
+  }
+  .btn-ghost {
+    @apply btn-cartoon bg-white text-ink-700 border-2 border-ink-200 hover:border-ink-300 px-6 py-3;
+    box-shadow: 0 3px 0 0 rgba(0,0,0,0.08);
+  }
+  .btn-danger {
+    @apply btn-cartoon bg-ruby-500 text-white hover:bg-ruby-600 px-6 py-3;
+  }
+  .answer-card {
+    @apply select-none cursor-pointer rounded-2xl border-2 border-ink-200 bg-white px-4 py-4 text-ink-900 font-bold transition-all hover:border-steppe-300 hover:bg-steppe-50 active:translate-y-0.5;
+    box-shadow: 0 3px 0 0 rgba(0,0,0,0.08);
+  }
+  .answer-card.selected {
+    @apply border-steppe-500 bg-steppe-50 text-steppe-700;
+    box-shadow: 0 3px 0 0 rgba(17,134,245,0.35);
+  }
+  .answer-card.correct {
+    @apply border-leaf-400 bg-emerald-50 text-leaf-600;
+    box-shadow: 0 3px 0 0 rgba(70,163,2,0.35);
+  }
+  .answer-card.wrong {
+    @apply border-ruby-500 bg-rose-50 text-ruby-600;
+    box-shadow: 0 3px 0 0 rgba(224,24,47,0.3);
+  }
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-extrabold;
+  }
+  .glass {
+    @apply backdrop-blur-md bg-white/70 border border-white/40;
+  }
+  .lesson-node {
+    @apply relative grid place-items-center rounded-full w-20 h-20 text-3xl font-extrabold text-white transition-all cursor-pointer active:translate-y-1 active:shadow-none;
+    --node-shadow: #3a8b02;
+    box-shadow: 0 8px 0 0 var(--node-shadow);
+  }
+  .lesson-node.locked {
+    @apply bg-ink-200 text-ink-400 cursor-not-allowed;
+    --node-shadow: #aebbd9;
+  }
+  .lesson-node.crown {
+    --node-shadow: #b45309;
+  }
+}
+
+/* Hide scrollbar but allow scroll on path */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+@keyframes pulse-halo {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.18); opacity: 0; }
+}
+
+/* App phone frame on landing */
+.phone-frame {
+  border-radius: 44px;
+  border: 14px solid #0b1530;
+  background: #fff;
+  box-shadow: 0 30px 80px -20px rgba(11,21,48,0.45), inset 0 0 0 2px rgba(255,255,255,0.06);
+  overflow: hidden;
+}
+
+/* Confetti dots */
+.confetti span {
+  position: absolute;
+  width: 10px;
+  height: 14px;
+  border-radius: 2px;
+  animation: fall 1.4s linear forwards;
+}
+@keyframes fall {
+  0% { transform: translateY(-40px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(360px) rotate(540deg); opacity: 0; }
+}
