@@ -1,0 +1,86 @@
+{
+  "packs": [
+    {
+      "subject": "english",
+      "grade": 4,
+      "path": "/packs/english-g4.json",
+      "units": 1,
+      "lessons": 10,
+      "questions": 50,
+      "bytes": 44965
+    },
+    {
+      "subject": "history",
+      "grade": 4,
+      "path": "/packs/history-g4.json",
+      "units": 5,
+      "lessons": 42,
+      "questions": 205,
+      "bytes": 630771
+    },
+    {
+      "subject": "history",
+      "grade": 5,
+      "path": "/packs/history-g5.json",
+      "units": 1,
+      "lessons": 10,
+      "questions": 50,
+      "bytes": 64790
+    },
+    {
+      "subject": "math",
+      "grade": 4,
+      "path": "/packs/math-g4.json",
+      "units": 4,
+      "lessons": 40,
+      "questions": 200,
+      "bytes": 264672
+    },
+    {
+      "subject": "math",
+      "grade": 5,
+      "path": "/packs/math-g5.json",
+      "units": 5,
+      "lessons": 48,
+      "questions": 240,
+      "bytes": 307741
+    },
+    {
+      "subject": "science",
+      "grade": 4,
+      "path": "/packs/science-g4.json",
+      "units": 14,
+      "lessons": 140,
+      "questions": 694,
+      "bytes": 893223
+    },
+    {
+      "subject": "science",
+      "grade": 5,
+      "path": "/packs/science-g5.json",
+      "units": 14,
+      "lessons": 140,
+      "questions": 700,
+      "bytes": 1174225
+    },
+    {
+      "subject": "society",
+      "grade": 4,
+      "path": "/packs/society-g4.json",
+      "units": 14,
+      "lessons": 138,
+      "questions": 687,
+      "bytes": 1003582
+    },
+    {
+      "subject": "society",
+      "grade": 5,
+      "path": "/packs/society-g5.json",
+      "units": 8,
+      "lessons": 80,
+      "questions": 400,
+      "bytes": 818784
+    }
+  ],
+  "totalQuestions": 3226
+}
