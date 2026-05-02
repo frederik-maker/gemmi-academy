@@ -1,0 +1,12 @@
+{
+  "appId": "co.bussler.gemmi",
+  "appName": "Gemmi Academy",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}
