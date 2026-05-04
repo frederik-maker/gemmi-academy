@@ -1,0 +1,28 @@
+{
+  "$comment": "Single source of truth for the on-device model. Edit this file ONCE when your fine-tune is uploaded, then run: scripts/install-native-tutor.sh && npm run android:apk",
+
+  "model": "gemma-4-E4B-it",
+  "version": "1.0.0",
+
+  "variants": {
+    "E2B": {
+      "url": "https://REPLACE-ME.example/models/gemma-4-E2B-it-gemmi-v1.litertlm",
+      "sizeBytes": 1395864371,
+      "sha256": "REPLACE_WITH_SHA256_OF_THE_LITERTLM_FILE_64_HEX_CHARS_00000000000000000000",
+      "minDeviceRamMb": 4096
+    },
+    "E4B": {
+      "url": "https://REPLACE-ME.example/models/gemma-4-E4B-it-gemmi-v1.litertlm",
+      "sizeBytes": 2684354560,
+      "sha256": "REPLACE_WITH_SHA256_OF_THE_LITERTLM_FILE_64_HEX_CHARS_00000000000000000000",
+      "minDeviceRamMb": 8192
+    }
+  },
+
+  "inference": {
+    "maxTokens": 4096,
+    "temperature": 0.7,
+    "topK": 40,
+    "stopTokens": ["<end_of_turn>"]
+  }
+}

@@ -1,0 +1,18 @@
+// Paste these into android/app/build.gradle inside the `dependencies { ... }` block.
+// The install script will splice them in automatically if it sees the marker comment.
+// MARKER: gemmi-tutor-deps
+
+dependencies {
+    implementation "com.google.ai.edge.litert:litert:1.0.+"
+    implementation "com.google.ai.edge.litert:litert-lm:0.1.+"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.+"
+}
+
+// Allow large model assets in the APK (you should NOT ship the model inside
+// the APK — see download-on-first-launch — but this header keeps the build
+// happy if you ever do for testing).
+android {
+    aaptOptions {
+        noCompress "litertlm"
+    }
+}
