@@ -1,0 +1,75 @@
+name: Build Android APK
+
+# Builds an unsigned debug APK on every push to main, then upserts it as the
+# `apk-latest` GitHub release asset. The landing page links to the asset URL,
+# so users always get the most-recent build without us bumping a release tag.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          # Capacitor 8 CLI requires Node >= 22
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          # Capacitor 8 requires Java 21+
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Build web bundle
+        run: npm run build
+
+      - name: Add Android platform (generates ./android scaffold)
+        run: npx cap add android
+
+      - name: Sync web bundle into Android project
+        run: npx cap sync android
+
+      - name: Build debug APK with Gradle
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Rename APK
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/debug/app-debug.apk out/gemmi.apk
+          ls -lh out/
+
+      - name: Upsert apk-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Delete the old release (if any) then create a fresh one so the
+          # download URL stays stable at .../apk-latest/gemmi.apk
+          gh release delete apk-latest --yes --cleanup-tag || true
+          gh release create apk-latest \
+            --title "Gemmi APK (latest build)" \
+            --notes "Auto-built from commit ${{ github.sha }} on $(date -u +'%Y-%m-%d %H:%M UTC'). Unsigned debug APK." \
+            out/gemmi.apk
