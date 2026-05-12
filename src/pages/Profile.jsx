@@ -214,7 +214,7 @@ function AboutGemmi({ lang }) {
       blocks: [
         {
           h: 'The name',
-          p: 'Gemmi is named after Gemma 4, Google\'s open on-device model. The version that lives inside this app is a Gemma 4 E4B that we fine-tuned for trilingual K-12 tutoring (Қазақша, Русский, English) using Unsloth, then quantised and packaged with LiteRT-LM. Once installed, the tutor runs entirely on your phone. No network. No API costs. No data leaves the device.',
+          p: 'Gemmi is named after Gemma 4, Google\'s open on-device model. The version that lives inside this app is a Gemma 4 E4B fine-tuned for trilingual K-12 tutoring (Қазақша, Русский, English), quantised, and packaged with LiteRT-LM. Once installed, the tutor runs entirely on your phone. No network. No API costs. No data leaves the device.',
         },
         {
           h: 'The mascot',
@@ -237,7 +237,7 @@ function AboutGemmi({ lang }) {
       blocks: [
         {
           h: 'Имя',
-          p: 'Gemmi названа в честь Gemma 4, открытой on-device модели Google. Внутри приложения работает Gemma 4 E4B, дообученная нами для трёхъязычного школьного обучения (Қазақша, Русский, English) с помощью Unsloth, квантизованная и упакованная через LiteRT-LM. После установки наставник работает полностью на телефоне. Без сети. Без оплаты API. Без выхода данных за пределы устройства.',
+          p: 'Gemmi названа в честь Gemma 4, открытой on-device модели Google. Внутри приложения работает Gemma 4 E4B, дообученная для трёхъязычного школьного обучения (Қазақша, Русский, English), квантизованная и упакованная через LiteRT-LM. После установки наставник работает полностью на телефоне. Без сети. Без оплаты API. Без выхода данных за пределы устройства.',
         },
         {
           h: 'Маскот',
@@ -260,7 +260,7 @@ function AboutGemmi({ lang }) {
       blocks: [
         {
           h: 'Аты',
-          p: 'Gemmi атауы Google-дың ашық on-device моделі Gemma 4-тен алынған. Қосымшаның ішінде Unsloth арқылы үш тілді мектеп оқуы үшін (Қазақша, Русский, English) дәл бапталған Gemma 4 E4B жұмыс істейді, квантизацияланған, LiteRT-LM арқылы оралған. Орнатылғаннан кейін ұстаз толығымен телефонда жұмыс істейді. Желі жоқ. API ақысы жоқ. Деректер құрылғыдан кетпейді.',
+          p: 'Gemmi атауы Google-дың ашық on-device моделі Gemma 4-тен алынған. Қосымшаның ішінде үш тілді мектеп оқуы үшін (Қазақша, Русский, English) дәл бапталған Gemma 4 E4B жұмыс істейді, квантизацияланған, LiteRT-LM арқылы оралған. Орнатылғаннан кейін ұстаз толығымен телефонда жұмыс істейді. Желі жоқ. API ақысы жоқ. Деректер құрылғыдан кетпейді.',
         },
         {
           h: 'Маскот',

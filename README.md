@@ -1,42 +1,38 @@
 # Gemmi Academy
 
-Live: **https://gemmi.ai** · APK: [github.com/frederik-maker/gemmi-academy/releases/latest](https://github.com/frederik-maker/gemmi-academy/releases/latest)
+A K-12 learning app for Kazakh kids that runs in three languages and ships either as a web app at **https://gemmi.ai** or as an [APK](https://github.com/frederik-maker/gemmi-academy/releases/latest). The curriculum covers five subjects (math, science, history, society, English) from age 5 through college, and there is a multi-tool AI tutor backed by Gemini sitting inside every lesson the student opens.
 
-K-12 in three languages on a phone. Five subjects (math, science, history, society, English) across five grade bands from age 5 to college. 1,943 hand-curated trilingual questions for G1-G3 plus around 3,000 MMLU-Pro questions for G4-G5, in Қазақша, Русский, and English. The AI tutor can see your handwriting and remembers what you got wrong.
-
-Built for the [Gemma 4 Good Hackathon](https://kaggle.com/competitions/gemma-4-good-hackathon). Target tracks: **Future of Education**, **Digital Equity & Inclusivity**, **LiteRT**, **Unsloth**.
+Built for the [Gemma 4 Good Hackathon](https://kaggle.com/competitions/gemma-4-good-hackathon). The submission is going in against the **Main Track**, the **Future of Education** impact track, and the **LiteRT** special technology track.
 
 ## What it does
 
-A student picks their grade and gets a Duolingo-style lesson path. Five questions per lesson, hearts and a streak. Get one wrong, lose a heart. Run out and wait 15 minutes per heart to refill, or spend 50 gems.
+A student picks their grade band and lands on a Duolingo-style lesson path through whichever subject they want. Each lesson is five questions with hearts, streaks, and XP. Get one wrong, lose a heart. Run out of hearts and you either wait fifteen minutes per heart to refill or spend gems to skip the wait. There are roughly 1,943 hand-curated trilingual questions for G1 through G3 across math, science, history, society and English, plus around 3,000 more pulled from MMLU-Pro for the G4-G5 grade bands.
 
-The tutor follows the student around. From the home screen they can ask anything. From inside a lesson question, an "Ask Gemmi" pill opens the chat with the current question pinned in context. After a wrong answer, the correct answer is pinned too. The tutor has four tools: look up the student's progress, find lessons matching a keyword, recommend a next lesson based on weakest subject, generate a fresh practice question. It also accepts photos. Point the camera at handwritten arithmetic or a textbook page and Gemma reads it.
+The more interesting part of the app is the tutor. It's a multi-tool agent that follows the student everywhere they go. From the home screen they can ask anything and the tutor decides which tool to call: it can look up the student's full state (XP, streak, completed lessons, weakest subject), search the curriculum by keyword, recommend the single most useful next lesson, or generate a fresh practice question on whatever topic they ask for. Each of those tools runs against the same in-app state the lessons themselves are using, so the answers are grounded in actual progress rather than invented.
 
-Every wrong answer goes into a struggles log with the question text and the right answer. That log is in the tutor's system context, so it can say "you got two quadratics wrong this week, want to revisit factoring?" without being prompted.
+Inside a lesson, a small "Ask Gemmi" pill on each question opens that same chat with the question pinned into the tutor's context. If the student just got it wrong, the correct answer is pinned alongside, and the tutor opens by explaining where the misstep was. The student can talk to it instead of typing (Web Speech for both directions) or point the phone's camera at whatever they're working on, handwritten arithmetic or a textbook page or a chemistry diagram, and the tutor reads the image and answers about what it sees.
+
+Every wrong answer also goes into a small per-student struggles log that the tutor reads on every turn. The effect is that it picks up on patterns: if a kid has missed two quadratics in the last day, the next time they open the chat the tutor can volunteer that without being asked. The shape of the experience ends up much closer to a private tutor than a chatbot, because it remembers, it adapts, and it knows the student's specific gaps.
 
 ## Tech
 
-Vite + React, Tailwind, Zustand with persist for state, KaTeX for math, Web Speech API for voice, React Router.
+The front end is Vite and React with Tailwind, Zustand with persist middleware for state, KaTeX for math, the Web Speech API for voice, and React Router for navigation. Lessons are JavaScript objects, one file per subject. G1-G3 is hand-written in `src/data/`. G4-G5 comes from MMLU-Pro packs that lazy-load per subject from `public/packs/` the first time the student opens that grade. Every question carries its prompt in three languages, options that are either flat strings or per-language arrays, and an answer index. A `forLangs` field lets a lesson hide itself from particular UI languages, which is why an English-speaking student doesn't see vocab-translation lessons like "What does 'Dog' mean?" Those only show up for Kazakh and Russian UIs where translating into the L1 is the point of the exercise.
 
-Lessons are JavaScript objects, one file per subject. G1-G3 hand-written in `src/data/`. G4-G5 from MMLU-Pro packs lazy-loaded per subject. Every question is trilingual. A `forLangs` field lets a lesson opt out of certain UI languages, so "Dog means Ит" works in Kazakh UI but disappears in English UI (where the tautology "Dog means Dog" would be useless).
+The tutor backend lives in `src/lib/tutorServer.js`. It's a small SSE proxy that forwards multimodal messages to Gemini 2.5 Flash via `@google/genai`, resolves tool calls in-process against the same code the client uses, and streams deltas back. A partially-scaffolded native path in `native/` runs Gemma 4 E4B on-device through LiteRT-LM as a Capacitor Android plugin, with a JS bridge that lets the same four tools work locally. Once a student installs the on-device model, the cloud path becomes a fallback and most usage runs entirely offline.
 
-The tutor server (`src/lib/tutorServer.js`) is an SSE proxy that forwards multimodal messages to Gemini 2.5 Flash via `@google/genai`, resolves tool calls in-process, and streams deltas back. A partially-scaffolded native path in `native/` runs Gemma 4 E4B on-device via LiteRT-LM, taking over once a student installs the model. Same tool registry both ways.
+Production is a small Express process on Railway. A Cloudflare Worker sits in front and proxies both `gemmi.ai` and `www.gemmi.ai` to the Railway service URL. That arrangement exists because Cloudflare flattens apex CNAMEs and Railway's certificate provisioning expects them visible, so the Worker bridges the two without losing edge SSL.
 
-Production is a small Express process on Railway. A Cloudflare Worker sits in front handling both apex and www, because Cloudflare flattens apex CNAMEs and Railway's cert provisioning expects them visible. The Worker forwards to the Railway service URL and CF Universal SSL covers both names.
+For Android, Capacitor wraps the Vite build. GitHub Actions builds the APK on every push to main and publishes it to the `apk-latest` release asset. The CI job runs Node 22 and Java 21 (Capacitor 8 requires both) and re-scaffolds the `android/` directory fresh each build rather than committing the generated files.
 
-For Android, Capacitor wraps the Vite build. GitHub Actions builds the APK on every push to main and publishes it to the `apk-latest` release asset. Node 22, Java 21, fresh `android/` scaffold each build.
-
-The mascot is a bowerbird with a gem. Drawn separately, processed through a Pillow script that does edge-aware background removal, bounding-box auto-crop, and re-centers the figure on a transparent canvas.
+The mascot is a bowerbird carrying a small gem, drawn separately and processed through a Pillow script that does edge-aware background removal, finds the bounding box of the opaque pixels, and re-centers the figure on a transparent canvas. The result is the PNG that lives in `public/`.
 
 ## Hackathon tracks
 
-**Future of Education** (Impact). The brief calls for "multi-tool agents that adapt to the individual and empower the educator through seamless integration." Gemmi has four tools that personalize to grade, language, completed lessons, and recent struggles. The struggles log is the integration piece: the tutor knows what the student is stuck on without being told.
+**Main Track.** The case for the overall prize is that Gemmi is a fully shipped trilingual K-12 app for an underserved audience, not a concept demo. Five subjects, five grade bands, a tutor that is genuinely personalized through real student state and a struggles log, photo input that handles handwritten work, and an on-device path that takes the whole thing offline once the local Gemma 4 model is installed. The site is live, the APK is downloadable, the repository is open, and the curriculum is open.
 
-**Digital Equity & Inclusivity** (Impact). Trilingual end-to-end. Kazakh is not a second-class language. Every prompt, every tool result, every error message exists in three languages with no translation loss. The `forLangs` filter means the curriculum adapts to who the student is, not the other way around.
+**Future of Education** (Impact, $10k). The track brief asks for multi-tool agents that adapt to the individual and empower the educator through seamless integration. Gemmi's tutor is exactly that. Four tools wired into the live student state, an "Ask Gemmi" pill on every lesson question that opens the chat with the question already in context, and a struggles log that turns repeated mistakes into a teaching moment the tutor surfaces on its own.
 
-**LiteRT** (Special Technology). The on-device path lives in `native/` as a Capacitor Android plugin (Kotlin) with a Node-side bridge. It runs a fine-tuned Gemma 4 E4B via LiteRT-LM. Same tool registry as the cloud path. The model runs locally, tools run in JS via the bridge.
-
-**Unsloth** (Special Technology). The on-device Gemma 4 E4B is fine-tuned with Unsloth on a trilingual K-12 instruction dataset.
+**LiteRT** (Special Technology, $10k). The on-device path runs a Gemma 4 E4B through LiteRT-LM inside a Capacitor Kotlin plugin, with a JS bridge so the same tool registry that runs against Gemini in the cloud runs against the local model on-device. Once the model is installed, the app runs the agent without a network. Code is in `native/`.
 
 ## Local dev
 
@@ -47,7 +43,7 @@ npm run dev
 
 Add `GEMINI_API_KEY` to `.env.local` first. The dev server starts Vite and registers an Express middleware at `/api/tutor` that proxies to Gemini. The same module runs in production from `server/index.js`, so dev and prod behave identically.
 
-To build a fresh APK locally (requires Android SDK and Java 21):
+To build a fresh APK locally (Android SDK and Java 21 required):
 
 ```
 npm run android:apk
