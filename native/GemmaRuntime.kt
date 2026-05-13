@@ -11,12 +11,13 @@ import java.util.concurrent.CountDownLatch
  *
  * The .task bundle is downloaded once into filesDir/llm/model.task (via
  * ModelDownloader, same code path as Piper voice tarballs) and loaded
- * from disk. No assets bundling — Gemma 3 1B int4 is ~580 MB.
+ * from disk — no asset bundling because Gemma 3 1B int4 is ~580 MB.
  *
- * Streaming: MediaPipe's setResultListener fires (partial, isDone) tuples
- * as the model produces tokens. The listener is set ONCE on the builder,
- * not per call, so we route through a volatile lambda that generate()
- * swaps in for the duration of one prompt.
+ * Streaming: tasks-genai's generateResponseAsync overload accepts a
+ * ProgressListener<String> directly (SAM-converted from a `(partial, done)`
+ * lambda). The Builder does NOT have setResultListener despite some
+ * sample code on the internet suggesting otherwise — the listener lives
+ * at the call site.
  */
 class GemmaRuntime(
   context: Context,
@@ -26,11 +27,6 @@ class GemmaRuntime(
   @Suppress("UNUSED_PARAMETER") temperature: Float,
 ) {
 
-  // The lambda generate() temporarily swaps in. The builder-time listener
-  // forwards every (partial, done) pair through here so each in-flight
-  // generate() call sees its own deltas without leaking between calls.
-  @Volatile private var onPartial: ((String, Boolean) -> Unit)? = null
-
   private val llm: LlmInference
 
   init {
@@ -38,36 +34,32 @@ class GemmaRuntime(
       .setModelPath(modelPath)
       .setMaxTokens(maxTokens)
       .setMaxTopK(topK)
-      .setResultListener { partial, isDone ->
-        onPartial?.invoke(partial ?: "", isDone)
-      }
       .build()
     llm = LlmInference.createFromOptions(context, opts)
   }
 
   /**
-   * Run `prompt` through the model, calling onDelta with each partial token
-   * chunk as it arrives. Returns the assembled full text when the model
-   * signals isDone. Blocks the calling thread — invoke from a coroutine on
-   * Dispatchers.Default.
+   * Run `prompt` through the model, calling onDelta with each partial chunk
+   * as it arrives. Returns the assembled full text when the model signals
+   * isDone. Blocks the calling thread — invoke from a coroutine on an IO
+   * or Default dispatcher.
    */
   fun generate(prompt: String, onDelta: (String) -> Unit): String {
     val sb = StringBuilder()
     val latch = CountDownLatch(1)
-    onPartial = { partial, isDone ->
-      if (partial.isNotEmpty()) {
+    // ProgressListener<String> = void run(String partial, boolean done).
+    // tasks-genai's generateResponseAsync returns a ListenableFuture; we
+    // don't await it directly because the listener tells us when done,
+    // and the future would just give us the same final string.
+    llm.generateResponseAsync(prompt) { partial, isDone ->
+      if (!partial.isNullOrEmpty()) {
         sb.append(partial)
         onDelta(partial)
       }
       if (isDone) latch.countDown()
     }
-    try {
-      llm.generateResponseAsync(prompt)
-      latch.await()
-      return sb.toString()
-    } finally {
-      onPartial = null
-    }
+    latch.await()
+    return sb.toString()
   }
 
   /**

@@ -78,12 +78,16 @@ export default function ModelSetup() {
     if (!window.GemmiTutor) return
     setPhase('downloading')
     try {
-      await window.GemmiTutor.download({
+      // model.config.json supplies the default url/sha/size; the plugin
+      // falls back to those when the JS side doesn't override them. After
+      // the user accepts Google's Gemma license on Hugging Face we'll add
+      // a token-aware override here.
+      await window.GemmiTutor.downloadModel({
         onProgress: ({ downloaded, total }) => setProgress({ downloaded, total }),
       })
       // Flag the model as ready so tutorProviders.nativeProvider.available()
       // starts returning true on the next chat open, routing inference to the
-      // local Gemma 4 instead of Gemini.
+      // local Gemma 3 instead of Gemini.
       try { localStorage.setItem('gemmi-offline-model-ready', 'true') } catch { /* private mode */ }
       setPhase('done')
     } catch (e) {
@@ -93,6 +97,12 @@ export default function ModelSetup() {
   }
 
   const variantInfo = caps ? caps.recommendedVariant : null
+  const variantLabel = (v) => {
+    if (!v || v === 'none') return '—'
+    // Friendly names for the few variants we currently ship; otherwise show id.
+    if (v === 'gemma3-1b-it-q4') return 'Gemma 3 · 1B int4'
+    return v
+  }
   const pct = progress?.total ? Math.round((progress.downloaded / progress.total) * 100) : 0
   const sizeMb = progress?.total ? Math.round(progress.total / (1024 * 1024)) : null
 
@@ -114,7 +124,7 @@ export default function ModelSetup() {
             <Cpu className="w-7 h-7 text-sun-300" strokeWidth={2.5} />
           </div>
           <div>
-            <div className="text-xs font-bold opacity-80 uppercase tracking-wide">Gemma 4 · LiteRT</div>
+            <div className="text-xs font-bold opacity-80 uppercase tracking-wide">Gemma 3 · LiteRT</div>
             <div className="text-lg font-extrabold">on-device tutor</div>
           </div>
         </div>
@@ -131,7 +141,7 @@ export default function ModelSetup() {
       {caps && (
         <div className="mt-5 rounded-2xl border-2 border-ink-100 bg-white p-4">
           <Stat label={STR.ramDetected[lang]} value={`${(caps.totalRamMb / 1024).toFixed(1)} GB`} />
-          <Stat label={STR.variant[lang]} value={variantInfo === 'none' ? '—' : `Gemma 4 ${variantInfo}`} />
+          <Stat label={STR.variant[lang]} value={variantLabel(variantInfo)} />
         </div>
       )}
 
