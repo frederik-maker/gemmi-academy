@@ -3,6 +3,19 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
 import './index.css'
+// Self-hosted Nunito — previously loaded from fonts.googleapis.com which
+// blocked render whenever the WebView sat on "WiFi connected, no internet"
+// (DNS hangs 30s before failing). Bundling the woff2 inside the APK means
+// the app paints regardless of network state. Latin + Cyrillic subsets so
+// kk-cyrillic and ru-cyrillic both look right.
+import '@fontsource/nunito/400.css'
+import '@fontsource/nunito/600.css'
+import '@fontsource/nunito/700.css'
+import '@fontsource/nunito/800.css'
+import '@fontsource/nunito/900.css'
+import '@fontsource/nunito/cyrillic-400.css'
+import '@fontsource/nunito/cyrillic-700.css'
+import '@fontsource/nunito/cyrillic-800.css'
 import 'katex/dist/katex.min.css'
 import { bootSmokeTest } from './lib/nativeBoot.js'
 import { setupPiperTts } from './lib/piperTts.js'

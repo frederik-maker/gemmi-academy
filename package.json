@@ -26,6 +26,7 @@
     "@capacitor/core": "^8.3.3",
     "@capacitor/status-bar": "^8.0.2",
     "@capgo/capacitor-speech-recognition": "^8.1.2",
+    "@fontsource/nunito": "^5.2.7",
     "@google/genai": "^2.1.0",
     "compression": "^1.8.1",
     "express": "^5.2.1",

@@ -103,17 +103,24 @@ export default function Profile() {
         <Row onClick={() => setLangOpen(true)} icon={<Globe className="w-5 h-5" />} label={t('changeLang', lang)}>
           <span className="text-xs font-bold">{lang?.toUpperCase()}</span>
         </Row>
-        <Row
-          onClick={onWarm}
-          icon={warming
-            ? <Loader2 className="w-5 h-5 text-steppe-500 animate-spin" />
-            : <Download className="w-5 h-5 text-steppe-500" />}
-          label={lang === 'kk' ? 'Офлайн жүктеу' : lang === 'ru' ? 'Скачать для офлайн' : 'Download for offline'}
-        >
-          <span className="text-xs font-extrabold text-ink-500">
-            {lang === 'kk' ? '~6 МБ' : lang === 'ru' ? '~6 МБ' : '~6 MB'}
-          </span>
-        </Row>
+        {/* The web build precaches lesson packs through the service worker
+            for offline study. On the Capacitor APK that's a no-op — packs
+            already ship bundled into the APK assets and there's no SW at
+            all — so the button would just spin forever. Hide it on
+            native. */}
+        {!(typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()) && (
+          <Row
+            onClick={onWarm}
+            icon={warming
+              ? <Loader2 className="w-5 h-5 text-steppe-500 animate-spin" />
+              : <Download className="w-5 h-5 text-steppe-500" />}
+            label={lang === 'kk' ? 'Офлайн жүктеу' : lang === 'ru' ? 'Скачать для офлайн' : 'Download for offline'}
+          >
+            <span className="text-xs font-extrabold text-ink-500">
+              {lang === 'kk' ? '~6 МБ' : lang === 'ru' ? '~6 МБ' : '~6 MB'}
+            </span>
+          </Row>
+        )}
         <Row onClick={onRefill} icon={<Heart className="w-5 h-5 text-rose-500" fill="currentColor" />} label={heartsLabel}>
           <span className="text-xs font-extrabold text-ink-500 flex items-center gap-1">
             {hearts}/5 · <Gem className="w-3.5 h-3.5 text-cyan-500" /> 50
