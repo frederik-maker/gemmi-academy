@@ -1,0 +1,40 @@
+// Splice file that scripts/wire-native.sh appends to android/app/build.gradle
+// via a single `apply from: 'gemmi.gradle'` line. We isolate every native
+// dependency + Kotlin enablement here so the Capacitor-generated build.gradle
+// stays untouched and the regenerated-each-CI-run android/ tree picks up our
+// changes deterministically.
+//
+// Pinned versions:
+//   Kotlin 2.0.21 — last 2.0.x stable, compatible with AGP 8.13.
+//   tasks-genai 0.10.24 — latest tasks-genai on Maven Central as of 2026-05.
+//   commons-compress 1.27.1 — used to extract Piper voice .tar.bz2 archives.
+//   sherpa-onnx 1.13.1 — official AAR from k2-fsa, dropped into app/libs/
+//                       by wire-native.sh (Maven Central has no first-party
+//                       publish; the AAR is on the GitHub release page).
+//
+// The kotlin-android plugin needs the kotlin-gradle-plugin on the buildscript
+// classpath. wire-native.sh patches android/build.gradle to add it there.
+
+apply plugin: 'kotlin-android'
+
+android {
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+    // sherpa-onnx ships pre-built .so files for every ABI; if two AARs in
+    // the project happen to ship the same .so name (unlikely here, but cheap
+    // insurance), packagingOptions resolves the conflict by picking one.
+    packagingOptions {
+        jniLibs {
+            pickFirsts += ['**/libc++_shared.so']
+        }
+    }
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
+}

@@ -2,9 +2,11 @@ name: Build Android APK
 
 # Builds the Android APK on every push to main and upserts it as the
 # apk-latest release asset (so the landing page download link stays
-# stable). The native LiteRT plugin in native/ is spliced into the
-# Capacitor scaffold during the build via scripts/install-native-tutor.sh;
-# the launcher icon + splash are generated from assets/* via @capacitor/assets.
+# stable). The native Kotlin scaffold in native/ is spliced into the
+# Capacitor-generated android/ tree by scripts/wire-native.sh after
+# `cap add android` runs; that script also enables Kotlin in the
+# Capacitor Java-only scaffold by patching root + app build.gradle.
+# Launcher icon + splash come from assets/* via @capacitor/assets.
 
 on:
   push:
@@ -54,14 +56,13 @@ jobs:
       - name: Add Android platform (generates ./android scaffold)
         run: npx cap add android
 
-      # NOTE: the native LiteRT plugin (Kotlin sources in native/) is NOT
-      # spliced into the APK build right now. Capacitor's `cap add android`
-      # scaffold is Java-only — enabling Kotlin requires patching two gradle
-      # files and a buildscript classpath, which is fragile across CLI
-      # versions. The on-device path is shipped as scaffold + design; the
-      # APK itself runs the web app via the cloud tutor. To re-enable the
-      # native compile, restore the `install-native-tutor.sh` step plus a
-      # Kotlin-enable patch on android/build.gradle.
+      - name: Wire native Kotlin scaffold into android/ tree
+        # Enables Kotlin in Capacitor's Java-only scaffold (patches root
+        # build.gradle for the Kotlin gradle plugin classpath, applies
+        # kotlin-android in app/build.gradle via apply-from), replaces
+        # MainActivity.java with our Kotlin one that registers plugins,
+        # and copies every native/*.kt into the package directory.
+        run: ./scripts/wire-native.sh
 
       - name: Generate launcher icon + splash from assets/
         # No fullscreen splash PNGs in assets/ — instead let @capacitor/assets

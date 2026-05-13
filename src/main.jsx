@@ -4,12 +4,12 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
 import './index.css'
 import 'katex/dist/katex.min.css'
-import { setupNativeTutor } from './lib/nativeTutor.js'
+import { bootSmokeTest } from './lib/nativeBoot.js'
 
-// Best-effort: when running inside the Capacitor APK shell, wire up the
-// on-device Gemma plugin. No-ops on web. Failure is silently swallowed —
-// the cloud provider remains the fallback.
-setupNativeTutor().catch(() => {})
+// On the Capacitor APK: ping the Kotlin Hello plugin once and log the
+// round-trip result. No-op on web. Proves the native bridge is alive
+// before any real (heavy) on-device plugin tries to use the same wiring.
+bootSmokeTest()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <BrowserRouter>
