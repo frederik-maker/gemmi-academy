@@ -1,8 +1,8 @@
 package co.bussler.gemmi
 
 import android.content.Context
-import com.google.ai.edge.litert.lm.LlmInference
-import com.google.ai.edge.litert.lm.LlmInferenceSession
+import com.google.mediapipe.tasks.genai.llminference.LlmInference
+import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.json.JSONArray
 import org.json.JSONObject
@@ -10,16 +10,16 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /**
- * Thin wrapper around LiteRT-LM's LlmInference / LlmInferenceSession.
+ * Thin wrapper around MediaPipe's LlmInference / LlmInferenceSession.
  *
- * Owns the loaded model and runs one generation at a time. The tool-use loop
- * is implemented by detecting the model's structured function-call blocks in
- * the stream, suspending to ask the JS side via onToolUse(), and feeding the
- * result back into the session as the next query chunk.
+ * Owns the loaded .task model and runs one generation at a time. The tool-use
+ * loop watches the streaming output for the structured function-call markers
+ * Gemma 4 emits, suspends to ask the JS side via onToolUse(), and feeds the
+ * tool result back into the same session as the next query chunk.
  *
- * NOTE: The exact API surface of LiteRT-LM may shift between SDK releases —
- * if the imports below don't resolve, check `com.google.ai.edge:litert-lm`
- * version in build.gradle and adjust class names accordingly.
+ * Heap budget: the E2B int4-quantised .task is ~2 GB on disk and roughly
+ * 2.5 GB at runtime. model.config.json gates download behind minDeviceRamMb
+ * so we never load on phones that would OOM.
  */
 class GemmaRuntime(
   private val context: Context,
@@ -38,8 +38,17 @@ class GemmaRuntime(
     val opts = LlmInference.LlmInferenceOptions.builder()
       .setModelPath(modelPath)
       .setMaxTokens(maxTokens)
+      .setMaxTopK(topK)
       .build()
     llm = LlmInference.createFromOptions(context, opts)
+  }
+
+  fun close() {
+    cancelled = true
+    session?.close()
+    session = null
+    llm?.close()
+    llm = null
   }
 
   fun cancel() {
@@ -49,14 +58,18 @@ class GemmaRuntime(
   }
 
   /**
-   * One full agent turn:
-   *   1. Render the chat history (system + messages) into Gemma 4's chat
-   *      template, including tool schemas so the model can emit tool calls.
-   *   2. Stream tokens via onDelta.
-   *   3. When a structured tool_use block appears in the stream, call
-   *      onToolUse(name, input) which returns a JSON string of the result;
-   *      append that as the next query chunk and keep generating.
-   *   4. Stop when the model emits a stop token.
+   * One full agent turn.
+   *
+   *   1. Render system + history (and tool schemas if present) into Gemma 4's
+   *      chat template via ChatTemplate.render.
+   *   2. addQueryChunk(prompt), then drive generateResponseAsync. Forward each
+   *      streamed token through StreamingResponseParser which strips the
+   *      chat-template envelope and watches for tool-use markers.
+   *   3. When a structured function-call appears, suspend, call onToolUse,
+   *      and feed the result back via addQueryChunk wrapped in the tool-result
+   *      delimiter. Continue generating.
+   *   4. Stop when the model emits <end_of_turn> / <eos> or when the caller
+   *      cancels.
    */
   suspend fun generate(
     system: String,
@@ -65,8 +78,9 @@ class GemmaRuntime(
     onDelta: (String) -> Unit,
     onToolUse: suspend (name: String, input: JSONObject) -> String,
   ): String {
+    val ll = llm ?: error("runtime_not_loaded")
     val sess = LlmInferenceSession.createFromOptions(
-      llm!!,
+      ll,
       LlmInferenceSession.LlmInferenceSessionOptions.builder()
         .setTopK(topK)
         .setTemperature(temperature)
@@ -75,15 +89,12 @@ class GemmaRuntime(
     session = sess
     cancelled = false
 
-    val prompt = ChatTemplate.render(system = system, messages = messages, tools = tools)
-    sess.addQueryChunk(prompt)
+    val initialPrompt = ChatTemplate.render(system = system, messages = messages, tools = tools)
+    sess.addQueryChunk(initialPrompt)
 
     while (!cancelled) {
       val parser = StreamingResponseParser(onDelta = onDelta, stopTokens = stopTokens)
 
-      // Drive the session: each callback delivers a partial chunk. When the
-      // model signals `done`, we return control here and inspect what was
-      // accumulated. Stop reason is end_turn unless we detect a tool_use.
       generateOnce(sess) { partial, done ->
         parser.feed(partial)
         if (done) parser.flush()
@@ -92,7 +103,6 @@ class GemmaRuntime(
       val toolCall = parser.pendingToolCall()
       if (toolCall != null) {
         val resultJson = onToolUse(toolCall.name, toolCall.input)
-        // Wrap the JSON result in the chat template's tool-result delimiter
         sess.addQueryChunk(ChatTemplate.renderToolResult(toolCall.name, resultJson))
         continue
       }

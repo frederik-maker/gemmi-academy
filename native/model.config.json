@@ -1,21 +1,16 @@
 {
-  "$comment": "Single source of truth for the on-device model. Edit this file ONCE when your fine-tune is uploaded, then run: scripts/install-native-tutor.sh && npm run android:apk",
+  "$comment": "On-device Gemma 4 E2B (instruction-tuned). Pre-converted by the LiteRT community team and hosted on Hugging Face. Loaded with MediaPipe LLM Inference API. The .task file is downloaded to context.filesDir on first launch of the offline-AI flow, never bundled into the APK.",
 
-  "model": "gemma-4-E4B-it",
+  "model": "gemma-4-E2B-it",
   "version": "1.0.0",
 
   "variants": {
     "E2B": {
-      "url": "https://REPLACE-ME.example/models/gemma-4-E2B-it-gemmi-v1.litertlm",
-      "sizeBytes": 1395864371,
-      "sha256": "REPLACE_WITH_SHA256_OF_THE_LITERTLM_FILE_64_HEX_CHARS_00000000000000000000",
+      "url": "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.task",
+      "filename": "gemma-4-E2B-it-web.task",
+      "sizeBytes": 2003697664,
+      "sha256": "2cbff161177a4d51c9d04360016185976f504517ba5758cd10c1564e5421c5a5",
       "minDeviceRamMb": 4096
-    },
-    "E4B": {
-      "url": "https://REPLACE-ME.example/models/gemma-4-E4B-it-gemmi-v1.litertlm",
-      "sizeBytes": 2684354560,
-      "sha256": "REPLACE_WITH_SHA256_OF_THE_LITERTLM_FILE_64_HEX_CHARS_00000000000000000000",
-      "minDeviceRamMb": 8192
     }
   },
 
@@ -23,6 +18,6 @@
     "maxTokens": 4096,
     "temperature": 0.7,
     "topK": 40,
-    "stopTokens": ["<end_of_turn>"]
+    "stopTokens": ["<end_of_turn>", "<eos>"]
   }
 }

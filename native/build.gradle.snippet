@@ -1,18 +1,21 @@
-// Paste these into android/app/build.gradle inside the `dependencies { ... }` block.
-// The install script will splice them in automatically if it sees the marker comment.
+// Paste these into android/app/build.gradle inside the `dependencies { ... }`
+// block. The install script splices them in automatically if it sees the
+// marker comment below.
 // MARKER: gemmi-tutor-deps
 
 dependencies {
-    implementation "com.google.ai.edge.litert:litert:1.0.+"
-    implementation "com.google.ai.edge.litert:litert-lm:0.1.+"
+    // MediaPipe LLM Inference API for loading the Gemma 4 .task file.
+    // We use 'tasks-genai' rather than 'litert-lm' because the pre-converted
+    // task bundles on Hugging Face are MediaPipe-compatible.
+    implementation "com.google.mediapipe:tasks-genai:0.10.+"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.+"
 }
 
-// Allow large model assets in the APK (you should NOT ship the model inside
-// the APK — see download-on-first-launch — but this header keeps the build
-// happy if you ever do for testing).
 android {
+    // The .task file is downloaded to filesDir at runtime, never bundled in
+    // the APK. The aaptOptions block is a safety net in case anyone copies a
+    // .task into assets/ for local testing.
     aaptOptions {
-        noCompress "litertlm"
+        noCompress "task"
     }
 }

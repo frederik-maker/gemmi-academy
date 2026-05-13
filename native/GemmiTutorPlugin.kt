@@ -56,11 +56,12 @@ class GemmiTutorPlugin : Plugin() {
     val availMb = info.availMem / (1024 * 1024)
 
     val variants = modelConfig?.getJSONObject("variants")
-    val recommended = when {
-      variants?.getJSONObject("E4B")?.getInt("minDeviceRamMb")?.let { totalMb >= it } == true -> "E4B"
-      variants?.getJSONObject("E2B")?.getInt("minDeviceRamMb")?.let { totalMb >= it } == true -> "E2B"
-      else -> "none"
-    }
+    // Only E2B is supported on-device for now. E4B would need ~8 GB RAM
+    // headroom which is rare on the target hardware in Kazakhstan.
+    val recommended = if (
+      variants?.has("E2B") == true &&
+      variants.getJSONObject("E2B").getInt("minDeviceRamMb").let { totalMb >= it }
+    ) "E2B" else "none"
     call.resolve(JSObject().apply {
       put("totalRamMb", totalMb)
       put("availRamMb", availMb)
@@ -71,10 +72,13 @@ class GemmiTutorPlugin : Plugin() {
   // ---- Model download ------------------------------------------------------
   @PluginMethod
   fun ensureModel(call: PluginCall) {
-    val variant = call.getString("variant") ?: "E4B"
+    val variant = call.getString("variant") ?: "E2B"
     val v = modelConfig?.getJSONObject("variants")?.getJSONObject(variant)
       ?: return call.reject("unknown_variant:$variant")
-    val target = File(context.filesDir, "$variant.litertlm")
+    // Use the filename from config (e.g. gemma-4-E2B-it-web.task) so the
+    // file extension matches what MediaPipe's LlmInference expects.
+    val filename = v.optString("filename", "$variant.task")
+    val target = File(context.filesDir, filename)
 
     scope.launch {
       try {
@@ -100,8 +104,11 @@ class GemmiTutorPlugin : Plugin() {
   // ---- Runtime init --------------------------------------------------------
   @PluginMethod
   fun init(call: PluginCall) {
-    val variant = call.getString("variant") ?: "E4B"
-    val modelFile = File(context.filesDir, "$variant.litertlm")
+    val variant = call.getString("variant") ?: "E2B"
+    val v = modelConfig?.getJSONObject("variants")?.getJSONObject(variant)
+      ?: return call.reject("unknown_variant:$variant")
+    val filename = v.optString("filename", "$variant.task")
+    val modelFile = File(context.filesDir, filename)
     if (!modelFile.exists()) return call.reject("model_not_downloaded")
     val inference = modelConfig?.getJSONObject("inference") ?: JSONObject()
 

@@ -16,6 +16,100 @@ const APK_URL = 'https://github.com/frederik-maker/gemmi-academy/releases/downlo
 const DOWNLOAD_LABEL = { kk: 'APK жүктеу', ru: 'Скачать APK', en: 'Download APK' }
 const DEMO_LABEL = { kk: 'Демо көру', ru: 'Демо онлайн', en: 'Demo online' }
 
+// Landing-page-specific copy. The shared ui.* dictionary in i18n.js only
+// covers in-app strings; the marketing copy below lives here.
+const STR = {
+  freeToPlay: { kk: 'Тегін', ru: 'Бесплатно', en: 'Free to play' },
+  worksOffline: { kk: 'Желісіз де жұмыс істейді', ru: 'Работает без интернета', en: 'Works offline' },
+  agesRange: { kk: '5 жастан ересекке дейін', ru: 'От 5 лет до взрослого', en: 'Ages 5 to adult' },
+  streakBadge: { kk: '14 күндік қатар', ru: 'Серия 14 дней', en: '14-day streak' },
+  xpEarnedBadge: { kk: '+15 XP жинадың', ru: '+15 XP получено', en: '+15 XP earned' },
+  startBadge: { kk: 'БАСТА', ru: 'СТАРТ', en: 'START' },
+  questions: { kk: 'сұрақ', ru: 'вопросов', en: 'questions' },
+  featuresTitle: {
+    kk: 'Ойын сияқты жасалған. Мектеп сияқты құрылған.',
+    ru: 'Сделано как игра. Построено как школа.',
+    en: 'Designed like a game. Built like a school.',
+  },
+  feat1Title: {
+    kk: 'Үш тіл қатар',
+    ru: 'Три языка рядом',
+    en: 'Three languages, side by side',
+  },
+  feat1Body: {
+    kk: 'Әр сұрақ, әр жауап, әр кеңес Қазақша, Русский және English тілдерінде жазылған. Кез келген сәтте ауысуға болады, прогресс жоғалмайды.',
+    ru: 'Каждый вопрос, ответ и подсказка написаны на Қазақша, Русский и English. Меняй язык в любой момент, прогресс не теряется.',
+    en: 'Every prompt, hint and answer is written in Қазақша, Русский and English. Switch any time without losing progress.',
+  },
+  feat2Title: {
+    kk: 'XP, қатар, жүрек, гауһар',
+    ru: 'XP, серии, сердца, кристаллы',
+    en: 'XP, streaks, hearts, gems',
+  },
+  feat2Body: {
+    kk: '6–14 жас аралығына арналған ойын механикасы. Күнделікті мақсат, күн қатары, жүрек жүйесі шыдамдылықты үйретеді.',
+    ru: 'Игровой контур, рассчитанный на возраст 6–14. Дневная цель, серия дней подряд, сердца, которые учат терпению.',
+    en: 'A real game loop tuned for 6–14 year olds. Daily goals, a streak that builds across days, hearts that teach patience.',
+  },
+  feat3Title: {
+    kk: 'On-device ИИ',
+    ru: 'On-device ИИ',
+    en: 'AI tutor on your phone',
+  },
+  feat3Body: {
+    kk: 'Gemma 4 E2B үлгісі телефонда жұмыс істейді. Желі болмаса да ұстаз қол жетімді. Сабақ ішінде «Джеммиден сұра» батырмасы әр сұрақта пайда болады.',
+    ru: 'Модель Gemma 4 E2B работает прямо на телефоне. Наставник доступен даже без интернета. Кнопка «Спросить Джемми» появляется на каждом вопросе урока.',
+    en: 'A Gemma 4 E2B model runs on the phone itself. The tutor is available even without internet. An "Ask Gemmi" button shows up on every lesson question.',
+  },
+  feat4Title: {
+    kk: 'Қазақстанға арналған бағдарлама',
+    ru: 'Программа для Казахстана',
+    en: 'Curriculum built for Kazakhstan',
+  },
+  feat4Body: {
+    kk: 'Алтын адам, үш жүз, ілбіс, дала. Жаһандық математика, ғылым, ағылшын тілінің негіздерімен қатар.',
+    ru: 'Золотой человек, три жуза, снежный барс, степь. Рядом с глобальной математикой, наукой и английским.',
+    en: 'The Golden Man, the three Juzes, snow leopards, the steppe. Alongside global math, science and English fundamentals.',
+  },
+  triBadge: {
+    kk: 'Бір сұрақ, үш тіл',
+    ru: 'Один вопрос, три языка',
+    en: 'Same question, three languages',
+  },
+  triTitle: {
+    kk: 'Бір сұрақ, үш тіл.',
+    ru: 'Один вопрос, три языка.',
+    en: 'One question, three languages.',
+  },
+  triBody: {
+    kk: 'Тілді ауыстырсаң, сабақ та сонымен ауысады. Аударма жоғалмайды, екінші сұрыпты тіл болмайды.',
+    ru: 'Сменишь язык, и урок переключится вместе с ним. Без потерь в переводе, без второсортного языка.',
+    en: 'Switch language and the lesson follows. No translation loss, no second-class language.',
+  },
+  numSubjects: { kk: 'пән', ru: 'предметов', en: 'subjects' },
+  numLanguages: { kk: 'тіл', ru: 'языка', en: 'languages' },
+  numUnits: { kk: 'бөлім', ru: 'разделов', en: 'units' },
+  numLessons: { kk: 'сабақ', ru: 'уроков', en: 'lessons' },
+  numQuestions: { kk: 'сұрақ', ru: 'вопросов', en: 'questions' },
+  numOffline: { kk: 'желісіз', ru: 'offline', en: 'offline' },
+  dlTitle: {
+    kk: 'Джеммиді телефоныңа орнат.',
+    ru: 'Установи Джемми на свой телефон.',
+    en: 'Get Gemmi on your phone.',
+  },
+  dlBody: {
+    kk: 'Android үшін тегін орнатылады. iOS — PWA арқылы. Әрқашан желісіз жұмыс істеуге дайын.',
+    ru: 'Бесплатно для Android. iOS — через PWA. Готов к работе без интернета.',
+    en: 'Install free on Android. iOS via PWA. Always offline-ready.',
+  },
+  dlTagline: {
+    kk: 'Тегін. Жарнамасыз. 5 жастан ересекке дейін. Желісіз жұмыс істейді.',
+    ru: 'Бесплатно. Без рекламы. С 5 лет до взрослых. Работает офлайн.',
+    en: 'Free. No ads. From age 5 to adult. Works offline.',
+  },
+  footerWeb: { kk: 'Веб-нұсқа', ru: 'Веб-версия', en: 'Web app' },
+}
+
 export default function Landing() {
   const [lang, setLang] = useState('en')
   const [extra, setExtra] = useState({ units: 0, lessons: 0, questions: 0 })
@@ -52,10 +146,10 @@ export default function Landing() {
       <Hero lang={lang} />
       <SubjectsStrip lang={lang} manifestExtra={perSubject} />
       <Features lang={lang} />
-      <Trilingual />
-      <Numbers totalUnits={totalUnits} totalLessons={totalLessons} totalQuestions={totalQuestions} />
+      <Trilingual lang={lang} />
+      <Numbers lang={lang} totalUnits={totalUnits} totalLessons={totalLessons} totalQuestions={totalQuestions} />
       <Download lang={lang} />
-      <Footer />
+      <Footer lang={lang} />
     </div>
   )
 }
@@ -75,7 +169,7 @@ function TopNav({ lang, setLang }) {
             {LANGS.map((l) => (
               <button key={l.code} onClick={() => setLang(l.code)}
                 className={`px-2 py-1 rounded-md ${lang === l.code ? 'bg-ink-100 text-ink-900' : 'hover:bg-ink-50'}`}>
-                {l.flag} {l.code.toUpperCase()}
+                {l.flag} {l.code === 'kk' ? 'KZ' : l.code.toUpperCase()}
               </button>
             ))}
           </div>
@@ -120,9 +214,9 @@ function Hero({ lang }) {
             </Link>
           </div>
           <div className="mt-7 flex items-center gap-5 text-sm font-bold text-ink-500">
-            <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-leaf-500" /> Free to play</span>
-            <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-leaf-500" /> Works offline</span>
-            <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-leaf-500" /> Ages 5 → adult</span>
+            <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-leaf-500" /> {STR.freeToPlay[lang]}</span>
+            <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-leaf-500" /> {STR.worksOffline[lang]}</span>
+            <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-leaf-500" /> {STR.agesRange[lang]}</span>
           </div>
         </div>
         <div className="relative">
@@ -131,8 +225,8 @@ function Hero({ lang }) {
             className="mx-auto w-[320px] phone-frame relative">
             <PhoneScreenshot lang={lang} />
           </motion.div>
-          <FloatingBadge style={{ top: 16, right: 4 }} accent="bg-sun-100 text-sun-700" icon={<Flame className="w-4 h-4" fill="currentColor" />} label="14-day streak" />
-          <FloatingBadge style={{ bottom: 24, left: -8 }} accent="bg-leaf-50 text-leaf-500" icon={<Award className="w-4 h-4" />} label="+15 XP earned" />
+          <FloatingBadge style={{ top: 16, right: 4 }} accent="bg-sun-100 text-sun-700" icon={<Flame className="w-4 h-4" fill="currentColor" />} label={STR.streakBadge[lang]} />
+          <FloatingBadge style={{ bottom: 24, left: -8 }} accent="bg-leaf-50 text-leaf-500" icon={<Award className="w-4 h-4" />} label={STR.xpEarnedBadge[lang]} />
         </div>
       </div>
     </section>
@@ -147,14 +241,14 @@ function PhoneScreenshot({ lang }) {
         <span>📶 100%</span>
       </div>
       <div className="px-4 flex items-center justify-between">
-        <span className="pill bg-ink-100 text-ink-700 text-[10px]">🇰🇿 KK</span>
+        <span className="pill bg-ink-100 text-ink-700 text-[10px]">{lang === 'kk' ? '🇰🇿 KZ' : lang === 'ru' ? '🇷🇺 RU' : '🇬🇧 EN'}</span>
         <div className="flex gap-1.5">
           <span className="pill bg-orange-100 text-orange-700 text-[10px]"><Flame className="w-3 h-3" fill="currentColor" /> 14</span>
           <span className="pill bg-sky-100 text-sky-700 text-[10px]">💎 60</span>
           <span className="pill bg-rose-100 text-rose-700 text-[10px]"><Heart className="w-3 h-3" fill="currentColor" /> 5</span>
         </div>
       </div>
-      <div className="px-4 mt-3 text-xs font-extrabold text-ink-500">{ui.unit.en} 2</div>
+      <div className="px-4 mt-3 text-xs font-extrabold text-ink-500">{ui.unit[lang]} 2</div>
       <div className="px-4 text-base font-extrabold">{subjects[0].units[1].title[lang]}</div>
       <div className="mt-5 flex-1 flex flex-col items-center gap-5">
         {[
@@ -171,7 +265,7 @@ function PhoneScreenshot({ lang }) {
               boxShadow: `0 6px 0 0 ${n.done ? '#b45309' : n.current ? '#0e6ce0' : '#aebbd9'}`,
             }}>
             {n.icon}
-            {n.current && <div className="absolute -top-7 text-[10px] font-extrabold bg-white border border-ink-200 px-2 py-0.5 rounded-full whitespace-nowrap text-ink-800">START</div>}
+            {n.current && <div className="absolute -top-7 text-[10px] font-extrabold bg-white border border-ink-200 px-2 py-0.5 rounded-full whitespace-nowrap text-ink-800">{STR.startBadge[lang]}</div>}
           </div>
         ))}
       </div>
@@ -240,7 +334,7 @@ function SubjectsStrip({ lang, manifestExtra }) {
               <div className="mt-3 font-extrabold text-lg">{s.title[lang]}</div>
               <div className="mt-1 text-xs font-bold opacity-90">{totalUnits} {ui.unit[lang]} · {totalLessons} {ui.lesson[lang]}</div>
               <div className="mt-3 text-3xl font-extrabold">{totalQs}</div>
-              <div className="text-xs font-bold opacity-90 uppercase tracking-wide">questions</div>
+              <div className="text-xs font-bold opacity-90 uppercase tracking-wide">{STR.questions[lang]}</div>
             </div>
           )
         })}
@@ -310,35 +404,15 @@ function DemoQuestion({ lang }) {
 
 function Features({ lang }) {
   const fs = [
-    {
-      icon: <Globe className="w-6 h-6" />,
-      title: 'Three languages, side by side',
-      body: 'Every prompt, hint and answer is written in Қазақша, Русский and English. Switch on the fly — no progress lost.',
-      tint: 'bg-steppe-50 text-steppe-700',
-    },
-    {
-      icon: <Trophy className="w-6 h-6" />,
-      title: 'XP, streaks, hearts, gems',
-      body: 'A real game loop tuned for 6–14 year-olds. Daily goals, a streak that builds across days, and a heart system that teaches patience.',
-      tint: 'bg-sun-50 text-sun-700',
-    },
-    {
-      icon: <Smartphone className="w-6 h-6" />,
-      title: 'Android-ready PWA',
-      body: 'Installs like a native app on Android. Tap "Add to Home Screen" and Gemmi runs full-screen, offline, and auto-updates.',
-      tint: 'bg-leaf-50 text-leaf-500',
-    },
-    {
-      icon: <Star className="w-6 h-6" />,
-      title: 'Curriculum built for Kazakhstan',
-      body: 'The Golden Man, the three Juzes, snow leopards, the steppe. Alongside global math, science and English fundamentals.',
-      tint: 'bg-rose-50 text-ruby-500',
-    },
+    { icon: <Globe className="w-6 h-6" />,    title: STR.feat1Title[lang], body: STR.feat1Body[lang], tint: 'bg-steppe-50 text-steppe-700' },
+    { icon: <Trophy className="w-6 h-6" />,   title: STR.feat2Title[lang], body: STR.feat2Body[lang], tint: 'bg-sun-50 text-sun-700' },
+    { icon: <Smartphone className="w-6 h-6" />, title: STR.feat3Title[lang], body: STR.feat3Body[lang], tint: 'bg-leaf-50 text-leaf-500' },
+    { icon: <Star className="w-6 h-6" />,     title: STR.feat4Title[lang], body: STR.feat4Body[lang], tint: 'bg-rose-50 text-ruby-500' },
   ]
   return (
     <section className="max-w-6xl mx-auto px-5 py-16">
       <div className="text-center max-w-2xl mx-auto mb-10">
-        <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Designed like a game. Built like a school.</h2>
+        <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">{STR.featuresTitle[lang]}</h2>
       </div>
       <div className="grid sm:grid-cols-2 gap-4">
         {fs.map((f, i) => (
@@ -356,14 +430,14 @@ function Features({ lang }) {
   )
 }
 
-function Trilingual() {
+function Trilingual({ lang }) {
   return (
     <section className="bg-ink-900 text-white">
       <div className="max-w-6xl mx-auto px-5 py-16">
         <div className="text-center max-w-2xl mx-auto">
-          <div className="inline-flex rounded-full bg-white/10 border border-white/20 px-3 py-1 text-xs font-extrabold">Aynyñ same question</div>
-          <h2 className="mt-3 text-3xl sm:text-4xl font-extrabold tracking-tight">One question, three languages.</h2>
-          <p className="mt-3 opacity-80 font-semibold">Switch language and the lesson follows. No translation loss, no second-class language.</p>
+          <div className="inline-flex rounded-full bg-white/10 border border-white/20 px-3 py-1 text-xs font-extrabold">{STR.triBadge[lang]}</div>
+          <h2 className="mt-3 text-3xl sm:text-4xl font-extrabold tracking-tight">{STR.triTitle[lang]}</h2>
+          <p className="mt-3 opacity-80 font-semibold">{STR.triBody[lang]}</p>
         </div>
         <div className="mt-10 grid lg:grid-cols-3 gap-3">
           {[
@@ -394,14 +468,14 @@ function Trilingual() {
   )
 }
 
-function Numbers({ totalUnits, totalLessons, totalQuestions }) {
+function Numbers({ lang, totalUnits, totalLessons, totalQuestions }) {
   const tiles = [
-    { v: subjects.length, label: 'subjects' },
-    { v: 3, label: 'languages' },
-    { v: totalUnits, label: 'units' },
-    { v: totalLessons, label: 'lessons' },
-    { v: totalQuestions, label: 'questions' },
-    { v: '100%', label: 'offline' },
+    { v: subjects.length,  label: STR.numSubjects[lang] },
+    { v: 3,                label: STR.numLanguages[lang] },
+    { v: totalUnits,       label: STR.numUnits[lang] },
+    { v: totalLessons,     label: STR.numLessons[lang] },
+    { v: totalQuestions,   label: STR.numQuestions[lang] },
+    { v: '100%',           label: STR.numOffline[lang] },
   ]
   return (
     <section className="max-w-6xl mx-auto px-5 py-16">
@@ -425,8 +499,8 @@ function Download({ lang }) {
           <Mascot size={300} mood="happy" />
         </div>
         <div className="relative max-w-xl">
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Get Gemmi on your phone.</h2>
-          <p className="mt-3 opacity-90 font-semibold">Install free on Android. iOS via PWA. Always offline-ready.</p>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">{STR.dlTitle[lang]}</h2>
+          <p className="mt-3 opacity-90 font-semibold">{STR.dlBody[lang]}</p>
           <div className="mt-6 flex flex-wrap gap-3">
             <a href={APK_URL} className="btn-cartoon bg-ink-900 text-white px-5 py-3 hover:bg-black">
               <Smartphone className="w-5 h-5" /> {DOWNLOAD_LABEL[lang]}
@@ -435,14 +509,14 @@ function Download({ lang }) {
               {DEMO_LABEL[lang]} <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
-          <div className="mt-5 text-xs font-bold opacity-80">Free. No ads. From age 5 to adult. Works offline.</div>
+          <div className="mt-5 text-xs font-bold opacity-80">{STR.dlTagline[lang]}</div>
         </div>
       </div>
     </section>
   )
 }
 
-function Footer() {
+function Footer({ lang }) {
   return (
     <footer className="border-t border-ink-100">
       <div className="max-w-6xl mx-auto px-5 py-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -451,8 +525,8 @@ function Footer() {
           Gemmi Academy · Қазақша · Русский · English
         </div>
         <div className="flex gap-4 text-xs font-bold text-ink-500">
-          <a href={APK_URL} className="hover:text-ink-900">Download APK</a>
-          <Link to="/learn" className="hover:text-ink-900">Web app</Link>
+          <a href={APK_URL} className="hover:text-ink-900">{DOWNLOAD_LABEL[lang]}</a>
+          <Link to="/learn" className="hover:text-ink-900">{STR.footerWeb[lang]}</Link>
         </div>
       </div>
     </footer>
