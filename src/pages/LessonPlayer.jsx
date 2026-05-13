@@ -94,9 +94,20 @@ export default function LessonPlayer() {
   const q = lesson.questions[i]
   const total = lesson.questions.length
 
-  // Resolve options + prompt per language
+  // Resolve options + prompt per language. Three legal shapes for q.options:
+  //   • plain array of strings — language-neutral (numbers, math, etc.)
+  //   • tri()-wrapped object { kk, ru, en } — multilingual answer text
+  //   • old optionsByLang / optionsByLangMap flag forms — same as tri'd
+  // We auto-detect the tri'd object even without a flag because society.js
+  // (and now the rest of the corpus) just emits `options: tri([...], [...])`
+  // without setting q.optionsByLang.
   const promptText = q.prompt[lang] ?? q.prompt.en
   let options = q.options
+  const looksTri = options
+    && !Array.isArray(options)
+    && typeof options === 'object'
+    && (Array.isArray(options.kk) || Array.isArray(options.en) || Array.isArray(options.ru))
+  if (looksTri) options = options[lang] ?? options.en ?? options.kk
   if (q.optionsByLang) options = q.options[lang] ?? q.options.en
   if (q.optionsByLangMap && q.optionsByLangMap[lang]) options = q.optionsByLangMap[lang]
 

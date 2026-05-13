@@ -35,8 +35,14 @@ export default function Onboarding() {
   const finalize = () => finish({ name, avatar, lang, grade, dailyGoal: goal })
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-steppe-50 to-white">
-      <div className="max-w-md mx-auto px-5 py-8 min-h-screen flex flex-col">
+    <div
+      className="min-h-screen bg-gradient-to-b from-steppe-50 to-white"
+      style={{
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 32px)',
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)',
+      }}
+    >
+      <div className="max-w-md mx-auto px-5 pb-8 min-h-screen flex flex-col">
         <ProgressDots count={TOTAL_STEPS} active={step} />
         <div className="mt-6 flex-1">
           {step === 0 && <Step key="0" title={t('pickLang', lang)} subtitle={t('pickLangSub', lang)}>
