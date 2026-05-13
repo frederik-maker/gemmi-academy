@@ -32,6 +32,16 @@ WHITE_TOLERANCE = 12      # how close to (255,255,255) counts as "white"
 EDGE_TOLERANCE = 60       # how close before we treat as a fading edge
 EDGE_FEATHER = True       # smooth the alpha at the silhouette edge
 
+# After the outer-bg flood-fill, any near-white connected component still
+# remaining that is bigger than this many pixels is treated as an *enclosed*
+# background region (e.g. the gap between the bird's legs, inside the beak)
+# and also dropped. Smaller blobs are kept because they are usually
+# intentional detail (eye highlights, gem facets).
+ENCLOSED_BG_MIN_PIXELS = 200
+
+# Favicon / app-icon variant sizes generated alongside gemmi.png.
+VARIANT_SIZES = [16, 32, 64, 180, 192, 512]
+
 
 def main() -> int:
     if not SRC.exists():
@@ -86,6 +96,25 @@ def main() -> int:
             right = np.zeros_like(bg); right[:, :-1] = bg[:, 1:]
             bg = (bg | up | down | left | right) & near_white
 
+    # Second pass: find enclosed near-white regions (walled off by darker
+    # outlines so the flood-fill from the border never reached them). For our
+    # bowerbird mascot this catches the gap between the legs and the open
+    # space inside the beak. Anything bigger than ENCLOSED_BG_MIN_PIXELS is
+    # almost certainly enclosed background; smaller blobs (eye highlights,
+    # gem facets) are kept.
+    try:
+        from scipy.ndimage import label as _label, binary_dilation as _bd  # type: ignore
+        remaining_white = near_white & ~bg
+        labels_arr, n_labels = _label(remaining_white)
+        if n_labels > 0:
+            import numpy as np  # noqa: F811 (already imported above)
+            counts = np.bincount(labels_arr.ravel())
+            for lbl in range(1, n_labels + 1):
+                if counts[lbl] >= ENCLOSED_BG_MIN_PIXELS:
+                    bg |= (labels_arr == lbl)
+    except Exception as e:
+        print(f"  (scipy missing, skipping enclosed-bg pass: {e})")
+
     out = arr.copy()
     # Background → fully transparent.
     out[bg, 3] = 0
@@ -93,8 +122,8 @@ def main() -> int:
     if EDGE_FEATHER:
         # For pixels right next to bg but not bg themselves (silhouette edge),
         # scale alpha by how non-white they are so the rim doesn't show a halo.
-        from scipy.ndimage import binary_dilation  # type: ignore
         try:
+            from scipy.ndimage import binary_dilation  # type: ignore
             edge = binary_dilation(bg, iterations=1) & ~bg
         except Exception:
             # No scipy — skip feathering but the result is still usable.
@@ -124,13 +153,22 @@ def main() -> int:
         oy = (canvas_side - ch) // 2
         ox = (canvas_side - cw) // 2
         canvas[oy:oy + ch, ox:ox + cw] = cropped
-        Image.fromarray(canvas).save(OUT, optimize=True)
+        final_img = Image.fromarray(canvas)
+        final_img.save(OUT, optimize=True)
         transparent_pct = (canvas[:, :, 3] == 0).mean() * 100
         print(f"✓ Wrote {OUT}")
         print(f"  Source:  {w}×{h}")
         print(f"  Cropped: {cw}×{ch} subject")
         print(f"  Output:  {canvas_side}×{canvas_side} (centred, {pad}px padding)")
         print(f"  Transparent pixels: {transparent_pct:.1f}%")
+
+        # Regenerate favicon / app-icon variants so a single rebuild keeps
+        # every size used in index.html and manifest.webmanifest in sync.
+        for size in VARIANT_SIZES:
+            variant_path = ROOT / "public" / f"gemmi-{size}.png"
+            resized = final_img.resize((size, size), Image.LANCZOS)
+            resized.save(variant_path, optimize=True)
+            print(f"  + {variant_path.name}")
     else:
         Image.fromarray(out).save(OUT, optimize=True)
         print(f"✓ Wrote {OUT} (no opaque subject found — saved unchanged)")
