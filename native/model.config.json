@@ -1,0 +1,22 @@
+{
+  "$comment": "On-device LLM (Gemma 3 1B via MediaPipe Tasks GenAI). The .task file is downloaded into context.filesDir/llm/ on user request and loaded once via LlmInference.createFromOptions. The default URL points at the LiteRT community Gemma 3 1B int4 mobile build on Hugging Face — requires the user to accept Google's Gemma license, which is why we don't auto-download. The setup UI prompts for consent and an optional HF token.",
+
+  "variants": {
+    "gemma3-1b-it-q4": {
+      "id": "Gemma3-1B-IT_multi-prefill-seq_q4_ekv2048",
+      "url": "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv2048.task",
+      "sizeBytes": 582000000,
+      "sha256": "FILL_FROM_HF_AFTER_LICENSE_ACCEPT",
+      "minRamMb": 4096,
+      "tokenizer": "gemma3",
+      "license": "https://ai.google.dev/gemma/terms"
+    }
+  },
+
+  "engine": {
+    "defaultVariant": "gemma3-1b-it-q4",
+    "maxTokens": 1024,
+    "topK": 40,
+    "temperature": 0.7
+  }
+}

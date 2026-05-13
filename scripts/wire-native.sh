@@ -106,14 +106,16 @@ done
 # 5. Copy native/voice.config.json into Android assets so PiperTtsPlugin's
 #    onLoad can read it.
 # ---------------------------------------------------------------------------
-step "Installing voice.config.json into Android assets"
+step "Installing config JSONs into Android assets"
 mkdir -p "$ASSETS"
-if [[ -f "$NATIVE/voice.config.json" ]]; then
-  cp "$NATIVE/voice.config.json" "$ASSETS/voice.config.json"
-  echo "    ✓ wrote voice.config.json"
-else
-  echo "    ⚠ native/voice.config.json missing; PiperTts will fail at runtime"
-fi
+for f in voice.config.json model.config.json; do
+  if [[ -f "$NATIVE/$f" ]]; then
+    cp "$NATIVE/$f" "$ASSETS/$f"
+    echo "    ✓ wrote $f"
+  else
+    echo "    ⚠ native/$f missing; the corresponding plugin will fail at runtime"
+  fi
+done
 
 # ---------------------------------------------------------------------------
 # 6. Fetch sherpa-onnx-$SHERPA_VERSION.aar from the k2-fsa GitHub release

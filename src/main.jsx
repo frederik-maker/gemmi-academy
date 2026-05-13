@@ -6,14 +6,18 @@ import './index.css'
 import 'katex/dist/katex.min.css'
 import { bootSmokeTest } from './lib/nativeBoot.js'
 import { setupPiperTts } from './lib/piperTts.js'
+import { setupNativeTutor } from './lib/nativeTutor.js'
 
 // On the Capacitor APK: ping the Kotlin Hello plugin once and log the
 // round-trip result. No-op on web. Proves the native bridge is alive
 // before any real (heavy) on-device plugin tries to use the same wiring.
 bootSmokeTest()
-// Register window.PiperTts on native so voice.js routes through sherpa-onnx
-// when a voice has been downloaded. No-op on web.
+// Register window.PiperTts and window.GemmiTutor on native so the rest of
+// the app can route to the on-device sherpa-onnx and LiteRT backends when
+// they're set up. Both are no-ops on web; both fail soft on native so the
+// cloud + Web-Speech paths remain authoritative.
 setupPiperTts().catch(() => {})
+setupNativeTutor().catch(() => {})
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <BrowserRouter>

@@ -46,6 +46,10 @@ repositories {
 dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
     implementation "org.apache.commons:commons-compress:1.27.1"
+    // MediaPipe Tasks GenAI = LiteRT LLM inference runtime, bundled into
+    // a single artifact on Maven Central. 0.10.24 is the latest publish
+    // (later versions only ship vision/audio, not genai).
+    implementation "com.google.mediapipe:tasks-genai:0.10.24"
     // sherpa-onnx AAR comes from k2-fsa's GitHub release. wire-native.sh
     // downloads it to android/app/libs/sherpa-onnx-1.13.1.aar before this
     // file is applied.

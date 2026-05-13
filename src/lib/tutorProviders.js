@@ -75,26 +75,25 @@ export const cloudProvider = {
 }
 
 
-// ---------- Native (Gemma via LiteRT, runs on-device) -------------------------
+// ---------- Native (Gemma 3 via LiteRT, runs on-device) ----------------------
 //
-// Contract the Capacitor plugin must expose on globalThis:
+// Contract the Capacitor plugin must expose on globalThis (set up by
+// src/lib/nativeTutor.js):
 //
 //   window.GemmiTutor = {
-//     ready: Promise<{ model: 'gemma-4-2b' | string, version: string }>,
-//     generate({ system, messages, tools, onDelta, onToolUse }):
-//        Promise<{ stop_reason: 'end_turn' | 'tool_use' | 'max_tokens' }>
+//     deviceCaps(): Promise<{ totalRamMb, recommendedVariant }>,
+//     modelState(): Promise<{ state: 'missing' | 'ready', sizeBytes? }>,
+//     downloadModel({ url, sha256, sizeBytes, onProgress }): Promise<{state}>,
+//     generate({ prompt, onDelta }): Promise<string>,
+//     cancel(): Promise<void>,
 //   }
 //
-// The plugin is expected to:
-//   - Run the local agent loop and emit text deltas via `onDelta(text)`.
-//   - When the model emits a structured tool_use block, call
-//     `onToolUse({ name, input })` which returns the tool result; the plugin
-//     should then continue generation with that result injected.
-//
-// The JS-side executor (`executeTool` from tutorTools.js) resolves tools that
-// need access to in-app state (student progress, lesson search), exactly the
-// same code path the cloud provider uses server-side. The model runs in the
-// process; tools run in JS. Same shape as the cloud version.
+// The native side is a vanilla streaming completion API — no tool use on
+// device. MediaPipe Tasks GenAI doesn't expose structured tool-call output
+// from Gemma, and faking it via stop-string parsing on a 1B model gets
+// flaky fast. Keep tools on the cloud path; on-device is for "answer the
+// student's question directly, in their language" — no get_student_state,
+// no generate_practice_question.
 export const nativeProvider = {
   id: 'native',
   name: 'Gemma (on device)',
@@ -104,31 +103,38 @@ export const nativeProvider = {
     if (typeof window.GemmiTutor?.generate !== 'function') return false
     // ModelSetup.jsx sets this flag after a verified download completes.
     // Without it we don't claim native is "available" — otherwise the first
-    // chat message would block on Plugin.ensureModel() and trigger a 2 GB
-    // download in the background while the kid waits, which is hostile UX.
+    // chat message would block on the download path silently.
     try {
       return localStorage.getItem('gemmi-offline-model-ready') === 'true'
     } catch { return false }
   },
-  async *streamReply({ messages, studentState, signal }) {
+  async *streamReply({ messages, signal }) {
     const tutor = window.GemmiTutor
     if (!tutor) {
       yield { kind: 'error', message: 'On-device tutor not available' }
       return
     }
-    await tutor.ready
+
+    // Compose a Gemma-3 chat prompt by hand. We use the model's recommended
+    // template: <start_of_turn>user\n...\n<end_of_turn>\n<start_of_turn>model\n
+    const sanitized = sanitize(messages)
+    const turns = sanitized.map((m) => {
+      const role = m.role === 'assistant' ? 'model' : 'user'
+      const text = m.content
+        .filter((c) => c.type === 'text')
+        .map((c) => c.text)
+        .join('\n')
+      return `<start_of_turn>${role}\n${text}<end_of_turn>`
+    })
+    const prompt = `<start_of_turn>user\n${SYSTEM_PROMPT_LOCAL}<end_of_turn>\n` +
+      turns.join('\n') + '\n<start_of_turn>model\n'
 
     const queue = []
     let resolveNext = null
     let stopped = false
     const push = (ev) => {
-      if (resolveNext) {
-        const r = resolveNext
-        resolveNext = null
-        r(ev)
-      } else {
-        queue.push(ev)
-      }
+      if (resolveNext) { const r = resolveNext; resolveNext = null; r(ev) }
+      else queue.push(ev)
     }
     const next = () => new Promise((r) => {
       if (queue.length) r(queue.shift())
@@ -136,25 +142,15 @@ export const nativeProvider = {
       else resolveNext = r
     })
 
-    const sanitized = sanitize(messages)
+    // Allow the chat UI to abort.
+    if (signal) signal.addEventListener('abort', () => { try { tutor.cancel() } catch {} })
+
     const generation = tutor
       .generate({
-        system: SYSTEM_PROMPT_LOCAL,
-        messages: sanitized,
-        tools: TUTOR_TOOLS,
-        signal,
+        prompt,
         onDelta: (text) => push({ kind: 'delta', text }),
-        onToolUse: async ({ name, input }) => {
-          push({ kind: 'tool_start', name })
-          const result = executeTool(name, input || {}, studentState)
-          push({ kind: 'tool_result', name, input, output: result })
-          return result
-        },
       })
-      .then(() => {
-        stopped = true
-        push({ kind: 'done' })
-      })
+      .then(() => { stopped = true; push({ kind: 'done' }) })
       .catch((err) => {
         push({ kind: 'error', message: err?.message || 'on-device generation failed' })
         stopped = true
@@ -171,15 +167,13 @@ export const nativeProvider = {
   },
 }
 
-// Shorter system prompt: small on-device models choke on the multi-paragraph
-// instructions we send to the cloud model. The cloud version uses the full
-// prompt server-side.
-const SYSTEM_PROMPT_LOCAL = `You are Gemmi, a bowerbird AI tutor in Gemmi Academy.
-Reply in the student's chosen language (Қазақша / Русский / English).
-Keep replies short, 1 to 3 sentences, unless explaining a concept.
-Call get_student_state before answering personal questions.
-Call generate_practice_question when the student asks to be quizzed.
-Do not use em dashes or en dashes. Use periods, commas, colons, or parentheses.`
+// Compact system prompt. Gemma 3 1B int4 doesn't reliably follow long
+// instruction blocks; we keep it punchy and rely on the cloud path for the
+// full agent-style behaviour.
+const SYSTEM_PROMPT_LOCAL = `You are Gemmi, a friendly tutor for kids in Gemmi Academy.
+Reply in the student's language (Қазақша / Русский / English).
+Keep replies short: 1 to 3 sentences. Be encouraging.
+Do not use em dashes or en dashes — use commas or parentheses.`
 
 
 // ---------- Selection --------------------------------------------------------
