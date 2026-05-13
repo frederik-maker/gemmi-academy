@@ -685,7 +685,10 @@ function SpeakButton({ text, lang }) {
     catch { /* ignore — fallback chain inside speak handles errors */ }
     finally { setPlaying(false) }
   }
-  if (!ttsSupported) return null
+  // Always render. ttsSupported is computed at module-load and on native
+  // the Piper window globals aren't ready yet at that moment — guarding
+  // on it hid the button on every APK install. speak() itself handles
+  // the "no engine available" fallback chain (Piper → Web Speech → no-op).
   return (
     <button onClick={onClick}
       className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-extrabold text-ink-400 hover:text-steppe-600"

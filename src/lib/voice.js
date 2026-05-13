@@ -60,12 +60,26 @@ export function useSpeechRecognition(lang) {
     finalRef.current = ''
     onFinalRef.current = onFinal
 
-    // Pre-flight: explicitly ask for the mic. On Capacitor + Android
-    // 13+ the WebView won't auto-prompt for the SpeechRecognition API,
-    // and recognition just hangs forever showing "listening" without
-    // actually getting audio. Calling getUserMedia first triggers the
-    // OS-level dialog; we close the resulting stream immediately and
-    // hand off to SpeechRecognition.
+    // Permission preflight. Two passes:
+    //   1. If we're on the Capacitor APK, ask the Hello plugin to
+    //      trigger ActivityCompat.requestPermissions for RECORD_AUDIO.
+    //      The WebView's getUserMedia alone doesn't surface the OS
+    //      dialog reliably (Capacitor's WebChromeClient ignores
+    //      WebRTC permission callbacks for SpeechRecognition).
+    //   2. Then call getUserMedia anyway — on web that's how the prompt
+    //      fires; on native the previous step already showed the dialog
+    //      and this is a no-op if granted.
+    try {
+      const mod = await import('@capacitor/core')
+      if (mod.Capacitor?.isNativePlatform?.()) {
+        const Hello = mod.registerPlugin('Hello')
+        const res = await Hello.ensureMicPermission()
+        if (!res?.granted) {
+          setError('mic_permission_denied')
+          return
+        }
+      }
+    } catch { /* not native, fall through to getUserMedia */ }
     try {
       const stream = await navigator.mediaDevices?.getUserMedia?.({ audio: true })
       stream?.getTracks().forEach((t) => t.stop())
