@@ -6,7 +6,7 @@ Built for the [Gemma 4 Good Hackathon](https://kaggle.com/competitions/gemma-4-g
 
 ## On-device first
 
-The primary tutor is **Gemma 4 E2B-it running on-device**, loaded through MediaPipe's `LlmInference` API inside a Capacitor Android plugin. The model is the `gemma-4-E2B-it-web.task` build the LiteRT community team publishes on Hugging Face: roughly 2 GB, int4-quantised, MediaPipe-compatible. It is not bundled into the APK. The student opens the app, taps "enable offline AI", and the .task downloads to `context.filesDir`. After that the tutor runs entirely on the phone. No keys, no API spend, no data leaves the device.
+The primary tutor is **Gemma 4 E2B-it running on-device through LiteRT**, inside a Capacitor Android plugin. The model is the `gemma-4-E2B-it-web.task` build the LiteRT community team publishes on Hugging Face: roughly 2 GB, int4-quantised. It is not bundled into the APK. The student opens the app, taps "enable offline AI", and the .task downloads to `context.filesDir`. After that the tutor runs entirely on the phone. No keys, no API spend, no data leaves the device.
 
 That matters because the target audience is kids in rural Kazakhstan on entry-level Android phones with connectivity that drops out for minutes at a time. The downloader in `native/ModelDownloader.kt` assumes the 2 GB transfer will lose connection several times. Each attempt resumes from the `.part` file's current length via HTTP Range, retries with exponential backoff (1s up to 30s, eight attempts per call), tolerates `SSLException` / `SocketTimeoutException` / mid-stream `IOException`, and SHA-256-verifies the bytes before atomically renaming the `.part` to the final destination. The Hugging Face resolve URL serves through Cloudfront with `Accept-Ranges: bytes`, so the resumes work cleanly.
 
@@ -38,7 +38,7 @@ The mascot is a bowerbird carrying a gem. Bowerbirds collect bright objects and 
 
 **Future of Education (Impact).** The brief asks for multi-tool agents that adapt to the individual and empower the educator through seamless integration. Four tools wired into the live student state, an "Ask Gemmi" pill on every lesson question that opens the chat with that question pinned, and a struggles log so the tutor knows what the student keeps getting wrong without being told.
 
-**LiteRT (Special Technology).** The on-device path is the project. A Capacitor Android plugin downloads the Gemma 4 E2B-it `.task` from the LiteRT community Hugging Face repo, holds it in `context.filesDir`, loads it through MediaPipe's `LlmInference`, and runs the same four-tool agent loop the cloud path runs. Once the model is installed the entire tutor (tool calls, multi-turn responses, struggles-log context) keeps working offline. The downloader is built for the spotty rural cellular the target users have.
+**LiteRT (Special Technology).** The on-device path is the project. A Capacitor Android plugin downloads the Gemma 4 E2B-it `.task` from the LiteRT community Hugging Face repo, holds it in `context.filesDir`, loads it through LiteRT, and runs the same four-tool agent loop the cloud path runs. Once the model is installed the entire tutor (tool calls, multi-turn responses, struggles-log context) keeps working offline. The downloader is built for the spotty rural cellular the target users have.
 
 ## Local dev
 

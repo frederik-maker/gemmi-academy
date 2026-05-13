@@ -214,7 +214,7 @@ function AboutGemmi({ lang }) {
       blocks: [
         {
           h: 'The name',
-          p: 'Gemmi is named after Gemma 4, Google\'s open on-device model. The version that ships inside the Android app is Gemma 4 E2B-it, int4-quantised by the LiteRT community team and loaded through MediaPipe\'s LLM Inference API. It downloads on first use (about 2 GB, resumable over spotty cell) rather than bundling into the APK. Once installed, the tutor runs entirely on your phone. No network. No API costs. No data leaves the device.',
+          p: 'Gemmi is named after Gemma 4, Google\'s open on-device model. The version that ships inside the Android app is Gemma 4 E2B-it, int4-quantised by the LiteRT community team and loaded through LiteRT. It downloads on first use (about 2 GB, resumable over spotty cell) rather than bundling into the APK. Once installed, the tutor runs entirely on your phone. No network. No API costs. No data leaves the device.',
         },
         {
           h: 'The mascot',
@@ -224,7 +224,7 @@ function AboutGemmi({ lang }) {
           h: 'The stack',
           ps: [
             'Curriculum: hand-curated K-2 content plus 3,000+ trilingual MMLU-Pro questions for G3 to G5.',
-            'On-device AI: Gemma 4 E2B-it running via MediaPipe LLM Inference in a Capacitor Android plugin.',
+            'On-device AI: Gemma 4 E2B-it running via LiteRT in a Capacitor Android plugin.',
             'Cloud fallback: Gemini 2.5 Flash, used until the on-device Gemma is installed.',
             'App: React + Vite, offline service worker, voice I/O via Web Speech API.',
           ],
@@ -237,7 +237,7 @@ function AboutGemmi({ lang }) {
       blocks: [
         {
           h: 'Имя',
-          p: 'Gemmi названа в честь Gemma 4, открытой on-device модели Google. Внутри Android-приложения работает Gemma 4 E2B-it, квантизованная int4 командой LiteRT-сообщества и подгружаемая через MediaPipe LLM Inference. Скачивается при первом запуске (около 2 ГБ, с возобновлением при нестабильной сотовой связи), а не упаковывается в APK. После установки наставник работает полностью на телефоне. Без сети. Без оплаты API. Без выхода данных за пределы устройства.',
+          p: 'Gemmi названа в честь Gemma 4, открытой on-device модели Google. Внутри Android-приложения работает Gemma 4 E2B-it, квантизованная int4 командой LiteRT-сообщества и подгружаемая через LiteRT. Скачивается при первом запуске (около 2 ГБ, с возобновлением при нестабильной сотовой связи), а не упаковывается в APK. После установки наставник работает полностью на телефоне. Без сети. Без оплаты API. Без выхода данных за пределы устройства.',
         },
         {
           h: 'Маскот',
@@ -247,7 +247,7 @@ function AboutGemmi({ lang }) {
           h: 'Стек',
           ps: [
             'Программа: ручной K-2 плюс 3000+ трёхъязычных вопросов MMLU-Pro для G3 по G5.',
-            'On-device ИИ: Gemma 4 E2B-it через MediaPipe LLM Inference в Capacitor-плагине.',
+            'On-device ИИ: Gemma 4 E2B-it через LiteRT в Capacitor-плагине.',
             'Облачный резерв: Gemini 2.5 Flash, до установки локальной Gemma.',
             'Приложение: React + Vite, offline service worker, голос через Web Speech API.',
           ],
@@ -260,7 +260,7 @@ function AboutGemmi({ lang }) {
       blocks: [
         {
           h: 'Аты',
-          p: 'Gemmi атауы Google-дың ашық on-device моделі Gemma 4-тен алынған. Android қосымшасының ішінде LiteRT қауымдастығы int4-ке кванттаған Gemma 4 E2B-it жұмыс істейді, MediaPipe LLM Inference арқылы жүктеледі. Алғаш ашқанда телефонға жүктеледі (шамамен 2 ГБ, нашар ұялы байланыс кезінде қайта жалғасады), APK ішіне салынбайды. Орнатылғаннан кейін ұстаз толығымен телефонда жұмыс істейді. Желі жоқ. API ақысы жоқ. Деректер құрылғыдан кетпейді.',
+          p: 'Gemmi атауы Google-дың ашық on-device моделі Gemma 4-тен алынған. Android қосымшасының ішінде LiteRT қауымдастығы int4-ке кванттаған Gemma 4 E2B-it жұмыс істейді, LiteRT арқылы жүктеледі. Алғаш ашқанда телефонға жүктеледі (шамамен 2 ГБ, нашар ұялы байланыс кезінде қайта жалғасады), APK ішіне салынбайды. Орнатылғаннан кейін ұстаз толығымен телефонда жұмыс істейді. Желі жоқ. API ақысы жоқ. Деректер құрылғыдан кетпейді.',
         },
         {
           h: 'Маскот',
@@ -270,7 +270,7 @@ function AboutGemmi({ lang }) {
           h: 'Технология',
           ps: [
             'Бағдарлама: 1-2 сыныптарға қолмен жасалған сабақтар, 3-5 сыныпқа арналған 3000+ үш тілді MMLU-Pro сұрағы.',
-            'On-device ИИ: Gemma 4 E2B-it, MediaPipe LLM Inference арқылы Capacitor плагінінде.',
+            'On-device ИИ: Gemma 4 E2B-it, LiteRT арқылы Capacitor плагінінде.',
             'Бұлттық резерв: Gemini 2.5 Flash, жергілікті Gemma орнатылғанға дейін.',
             'Қосымша: React + Vite, офлайн service worker, дауыс (Web Speech API).',
           ],

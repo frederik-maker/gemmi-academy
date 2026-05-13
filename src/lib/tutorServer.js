@@ -302,7 +302,7 @@ export async function handleTutorRequest(req, res) {
     for (let turn = 0; turn < 6; turn++) {
       const stream = await client.models.generateContentStream({
         // Gemini 2.5 Flash. Cloud fallback only; the actual product story is
-        // the on-device Gemma 4 E2B-it that ships via MediaPipe LLM Inference.
+        // the on-device Gemma 4 E2B-it that ships via LiteRT.
         // Gemma 4 31B over the public API has too much variance for chat-with-
         // tools (leaks "Constraints check:" / planning bullets / quoted
         // drafts in ~half of replies). Flash is reliable, follows the system
