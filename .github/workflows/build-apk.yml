@@ -45,7 +45,11 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install npm deps
-        run: npm ci
+        # --legacy-peer-deps because one of our deps (the Anthropic SDK or
+        # react-katex) drops prop-types as a peer that npm 10 won't auto-
+        # resolve under strict mode. Bunch of plugins also pin @capacitor/
+        # core at a slightly different minor than ours.
+        run: npm ci --legacy-peer-deps
 
       - name: Install @capacitor/assets (icon + splash generator)
         run: npm install --no-save @capacitor/assets
