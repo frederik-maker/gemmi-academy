@@ -7,12 +7,14 @@ import LangSwitcher from '../components/LangSwitcher.jsx'
 import GemPattern from '../components/GemPattern.jsx'
 
 // Realistic iPhone 15-style frame: rounded edges, dynamic island, side
-// buttons, volume rocker, mute switch. Children render inside the screen
-// area — we clamp to the same aspect ratio (~9:19.5) the real device
-// uses so the chat preview matches what users see on their phone.
+// buttons, volume rocker, mute switch. We use a ~9 / 18 aspect ratio
+// rather than the literal device 9 / 19.5 — at the hero's 300px width
+// the strict device ratio makes the phone look elongated next to the
+// headline column. 9 / 18 = ~600px tall, which reads more "phone" than
+// "stretched rectangle."
 function IPhoneFrame({ children }) {
   return (
-    <div className="relative w-full" style={{ aspectRatio: '9 / 19.5' }}>
+    <div className="relative w-full" style={{ aspectRatio: '9 / 18' }}>
       {/* Outer chassis */}
       <div className="absolute inset-0 rounded-[44px] bg-ink-900 shadow-[0_30px_80px_-20px_rgba(11,21,48,0.45),inset_0_0_0_2px_rgba(255,255,255,0.06)]" />
       {/* Inner bezel */}
@@ -25,8 +27,10 @@ function IPhoneFrame({ children }) {
       {/* Screen */}
       <div className="absolute inset-[10px] rounded-[34px] overflow-hidden bg-white">
         {children}
-        {/* Dynamic island, drawn over the screen content */}
-        <div className="absolute top-[8px] left-1/2 -translate-x-1/2 w-[96px] h-[26px] rounded-full bg-black z-10" />
+        {/* Dynamic island — smaller than a literal iPhone 15 Pro to give
+            the status-bar items (signal dots, 5G, %) more breathing room
+            at the hero's 300px width. */}
+        <div className="absolute top-[7px] left-1/2 -translate-x-1/2 w-[72px] h-[22px] rounded-full bg-black z-10" />
       </div>
     </div>
   )
@@ -530,12 +534,13 @@ function PhoneScreenshot({ lang }) {
           colour bleeds under the status bar. */}
       <div className="relative overflow-hidden text-white"
            style={{ background: 'linear-gradient(135deg, #1186f5 0%, #54c2ff 60%, #2ca6ff 100%)' }}>
-        {/* Status bar overlay — flush to the top, padded around the
-            dynamic island. White on blue, like a real iOS chat app. */}
-        <div className="px-5 pt-2 pb-1 flex justify-between text-[10px] font-extrabold opacity-95">
+        {/* Status bar overlay — pushed tight against the rounded
+            corners so the time/signal sit OUTSIDE the dynamic island
+            in the centre. White on blue, like a real iOS chat app. */}
+        <div className="px-3 pt-2 pb-1 flex justify-between text-[10px] font-extrabold opacity-95">
           <span>9:41</span>
-          <span className="flex items-center gap-1">
-            <span className="text-[9px]">●●●</span>
+          <span className="flex items-center gap-0.5">
+            <span className="text-[8px]">●●●</span>
             <span>5G</span>
             <span>100%</span>
           </span>
