@@ -16,6 +16,30 @@ const APK_URL = 'https://github.com/frederik-maker/gemmi-academy/releases/downlo
 const DOWNLOAD_LABEL = { kk: 'APK жүктеу', ru: 'Скачать APK', en: 'Download APK' }
 const DEMO_LABEL = { kk: 'Демо көру', ru: 'Демо онлайн', en: 'Demo online' }
 
+// Best-effort first-visit language pick. Order of precedence:
+//   1. URL param (?lang=kk|ru|en) — wins, useful for share links.
+//   2. Browser's primary language if it starts with kk or ru.
+//   3. Visitor is on a Kazakhstan timezone — default to Kazakh.
+//   4. Otherwise English.
+// The header's lang switcher still wins once the user clicks it.
+const KZ_TIMEZONES = new Set([
+  'Asia/Almaty', 'Asia/Aqtau', 'Asia/Aqtobe',
+  'Asia/Atyrau', 'Asia/Oral', 'Asia/Qostanay', 'Asia/Qyzylorda',
+])
+function detectInitialLang() {
+  if (typeof window === 'undefined') return 'en'
+  const fromUrl = new URLSearchParams(window.location.search).get('lang')
+  if (fromUrl === 'kk' || fromUrl === 'ru' || fromUrl === 'en') return fromUrl
+  const navLang = (navigator.language || '').toLowerCase()
+  if (navLang.startsWith('kk')) return 'kk'
+  if (navLang.startsWith('ru')) return 'ru'
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    if (KZ_TIMEZONES.has(tz)) return 'kk'
+  } catch { /* ignore */ }
+  return 'en'
+}
+
 // Landing-page-specific copy. The shared ui.* dictionary in i18n.js only
 // covers in-app strings; the marketing copy below lives here.
 // Inline Android robot icon. Lucide doesn't ship one (trademark dance), so a
@@ -199,7 +223,7 @@ const STR = {
 }
 
 export default function Landing() {
-  const [lang, setLang] = useState('en')
+  const [lang, setLang] = useState(detectInitialLang)
   const [extra, setExtra] = useState({ units: 0, lessons: 0, questions: 0 })
   const [perSubject, setPerSubject] = useState({}) // subjectId -> { units, lessons, questions }
   useEffect(() => {
