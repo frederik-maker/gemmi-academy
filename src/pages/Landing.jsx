@@ -222,7 +222,7 @@ function InstallHelp({ lang }) {
 }
 
 const STR = {
-  freeToPlay: { kk: 'Тегін', ru: 'Бесплатно', en: 'Free to play' },
+  freeToPlay: { kk: 'Тегін', ru: 'Бесплатно', en: 'Free' },
   worksOffline: { kk: 'Желісіз де жұмыс істейді', ru: 'Работает без интернета', en: 'Works offline' },
   agesRange: { kk: '5 жастан ересекке дейін', ru: 'От 5 лет до взрослого', en: 'Ages 5 to adult' },
   streakBadge: { kk: '14 күндік қатар', ru: 'Серия 14 дней', en: '14-day streak' },
