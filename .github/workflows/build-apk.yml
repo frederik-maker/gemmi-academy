@@ -45,11 +45,16 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install npm deps
-        # --legacy-peer-deps because one of our deps (the Anthropic SDK or
-        # react-katex) drops prop-types as a peer that npm 10 won't auto-
-        # resolve under strict mode. Bunch of plugins also pin @capacitor/
-        # core at a slightly different minor than ours.
-        run: npm ci --legacy-peer-deps
+        # `npm install` (not `npm ci`) because:
+        #   • --legacy-peer-deps for a couple of plugins that pin
+        #     @capacitor/core at a slightly different minor than ours and
+        #     for react-katex's prop-types peer.
+        #   • the lockfile gets generated on macOS dev machines and lists
+        #     @rollup/rollup-darwin-arm64 as the optional native binary;
+        #     `npm ci` won't install the linux-x64-gnu variant on the
+        #     Ubuntu runner (npm bug #4828). `npm install` resolves
+        #     optional deps per-host correctly.
+        run: npm install --legacy-peer-deps --no-audit --no-fund
 
       - name: Install @capacitor/assets (icon + splash generator)
         run: npm install --no-save @capacitor/assets
