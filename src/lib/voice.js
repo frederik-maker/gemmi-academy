@@ -130,22 +130,34 @@ export function useSpeechRecognition(lang) {
         return
       }
 
-      // Check whether the device's installed speech-recognition language
-      // packs cover what the user picked. Android's SpeechRecognizer
-      // silently falls back to the system default (usually en-US) when
-      // the requested locale isn't installed — that's why "Russian
-      // input transcribed as English" happened. Pre-empt that with a
-      // clear error pointing the user at Settings.
+      // Best-effort check whether the device's installed speech-recognition
+      // language packs cover the requested locale. Android's SpeechRecognizer
+      // silently falls back to the system default when a locale isn't
+      // installed, which is why Russian/Kazakh got transcribed as English.
+      //
+      // The plugin returns codes in inconsistent shapes across Android
+      // versions: 'en-US', 'en_US', sometimes a bare 'en'. The plugin
+      // result itself can be {languages: [...]}, {supportedLanguages: [...]}
+      // or a direct array. Normalize aggressively, and ONLY error out when
+      // we're certain the requested language is missing AND we got back
+      // a reasonable-looking non-empty list. Otherwise just try the start —
+      // worst case the user gets the wrong-language transcription instead
+      // of a spurious "not installed" banner.
       const wantLang = pickSpeechLang(lang)
       try {
         const supported = await c.SpeechRecognition.getSupportedLanguages?.()
-        const list = (supported?.languages || []).map((s) => String(s).toLowerCase())
-        const want = wantLang.toLowerCase()
+        const raw = Array.isArray(supported)
+          ? supported
+          : supported?.languages || supported?.supportedLanguages || []
+        const norm = (s) => String(s).toLowerCase().replace('_', '-')
+        const list = raw.map(norm)
+        const want = norm(wantLang)
         const wantPrefix = want.split('-')[0]
-        const ok = list.length === 0
-          || list.includes(want)
+        const looksReasonable = list.length >= 5  // device with <5 langs is malformed; trust it
+        const hasLang = list.includes(want)
+          || list.some((l) => l === wantPrefix)
           || list.some((l) => l.startsWith(wantPrefix + '-'))
-        if (!ok) {
+        if (looksReasonable && !hasLang) {
           setError(`mic_lang_not_installed:${wantLang}`)
           return
         }
