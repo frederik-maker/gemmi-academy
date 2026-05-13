@@ -14,6 +14,7 @@ import com.getcapacitor.BridgeActivity
 class MainActivity : BridgeActivity() {
   override fun onCreate(savedInstanceState: android.os.Bundle?) {
     registerPlugin(HelloPlugin::class.java)
+    registerPlugin(PiperTtsPlugin::class.java)
     super.onCreate(savedInstanceState)
   }
 }

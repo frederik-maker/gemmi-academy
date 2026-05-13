@@ -96,11 +96,37 @@ function ensureVoices() {
   return _voicesPromise
 }
 
+// Try the native Piper TTS plugin (sherpa-onnx) first when it's set up AND
+// the voice for this lang has been downloaded. Web Speech is the fallback
+// for every other path — including Piper throwing mid-utterance. Native
+// Piper is the only way we get a real kk-KZ voice on Android; Chrome's
+// Web Speech kk-KZ either doesn't exist or falls through to ru-RU.
+async function tryPiperSpeak(text, lang) {
+  const piper = typeof window !== 'undefined' ? window.PiperTts : null
+  if (!piper) return false
+  try {
+    const st = await piper.voiceState(lang)
+    if (st?.state !== 'ready') return false
+    await piper.speak({ text, lang })
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function speak(text, lang) {
-  if (typeof window === 'undefined' || !window.speechSynthesis) return
   // Strip any leftover LaTeX delimiters so the engine doesn't read "$x$".
   const clean = String(text).replace(/\$+/g, '').replace(/```[\s\S]*?```/g, '').trim()
   if (!clean) return
+
+  // Stop whatever is already playing on either engine before starting the
+  // next utterance, otherwise a fast double-tap stacks two voices.
+  try { window.PiperTts?.stop() } catch {}
+  if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel()
+
+  if (await tryPiperSpeak(clean, lang)) return
+
+  if (typeof window === 'undefined' || !window.speechSynthesis) return
   const voices = await ensureVoices()
   const wanted = LANG_MAP[lang] || LANG_MAP.en
   const voice = wanted.flatMap((tag) => voices.filter((v) => v.lang === tag))[0]
@@ -115,13 +141,14 @@ export async function speak(text, lang) {
   }
   u.rate = 1.0
   u.pitch = 1.05
-  window.speechSynthesis.cancel() // stop any previous utterance
   window.speechSynthesis.speak(u)
 }
 
 export function stopSpeaking() {
+  try { window.PiperTts?.stop() } catch {}
   if (typeof window === 'undefined' || !window.speechSynthesis) return
   window.speechSynthesis.cancel()
 }
 
-export const ttsSupported = typeof window !== 'undefined' && !!window.speechSynthesis
+export const ttsSupported = typeof window !== 'undefined'
+  && (!!window.speechSynthesis || !!window.PiperTts)

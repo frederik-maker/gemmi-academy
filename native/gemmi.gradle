@@ -1,19 +1,21 @@
 // Splice file that scripts/wire-native.sh appends to android/app/build.gradle
-// via a single `apply from: 'gemmi.gradle'` line. We isolate every native
-// dependency + Kotlin enablement here so the Capacitor-generated build.gradle
-// stays untouched and the regenerated-each-CI-run android/ tree picks up our
-// changes deterministically.
+// via a single `apply from: 'gemmi.gradle'` line. Isolating every native
+// dependency + Kotlin enablement here keeps the Capacitor-generated
+// build.gradle untouched and the regenerated-each-CI-run android/ tree
+// picks up our changes deterministically.
 //
-// Pinned versions:
-//   Kotlin 2.0.21 — last 2.0.x stable, compatible with AGP 8.13.
-//   tasks-genai 0.10.24 — latest tasks-genai on Maven Central as of 2026-05.
-//   commons-compress 1.27.1 — used to extract Piper voice .tar.bz2 archives.
-//   sherpa-onnx 1.13.1 — official AAR from k2-fsa, dropped into app/libs/
-//                       by wire-native.sh (Maven Central has no first-party
-//                       publish; the AAR is on the GitHub release page).
+// Pinned versions (as of 2026-05):
+//   Kotlin 2.0.21 — last 2.0.x stable, AGP 8.13 compatible
+//   tasks-genai 0.10.24 — latest tasks-genai on Maven Central
+//   commons-compress 1.27.1 — extract Piper voice .tar.bz2 archives
+//   sherpa-onnx 1.13.1 — fetched as AAR by wire-native.sh; Maven Central
+//                       has no first-party publish, so the .aar lives in
+//                       android/app/libs/ and is referenced via flatDir.
 //
-// The kotlin-android plugin needs the kotlin-gradle-plugin on the buildscript
-// classpath. wire-native.sh patches android/build.gradle to add it there.
+// The kotlin-android plugin needs the kotlin-gradle-plugin on the
+// buildscript classpath; wire-native.sh patches android/build.gradle for
+// that. ABI filter: arm64-v8a only. The sherpa-onnx AAR contains ~25 MB
+// of .so per ABI, and every Android device shipped after 2018 is arm64.
 
 apply plugin: 'kotlin-android'
 
@@ -25,9 +27,11 @@ android {
     kotlinOptions {
         jvmTarget = '17'
     }
-    // sherpa-onnx ships pre-built .so files for every ABI; if two AARs in
-    // the project happen to ship the same .so name (unlikely here, but cheap
-    // insurance), packagingOptions resolves the conflict by picking one.
+    defaultConfig {
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
+    }
     packagingOptions {
         jniLibs {
             pickFirsts += ['**/libc++_shared.so']
@@ -35,6 +39,15 @@ android {
     }
 }
 
+repositories {
+    flatDir { dirs 'libs' }
+}
+
 dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
+    implementation "org.apache.commons:commons-compress:1.27.1"
+    // sherpa-onnx AAR comes from k2-fsa's GitHub release. wire-native.sh
+    // downloads it to android/app/libs/sherpa-onnx-1.13.1.aar before this
+    // file is applied.
+    implementation(name: 'sherpa-onnx-1.13.1', ext: 'aar')
 }
