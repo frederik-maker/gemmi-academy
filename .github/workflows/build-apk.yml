@@ -45,16 +45,15 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install npm deps
-        # `npm install` (not `npm ci`) because:
-        #   • --legacy-peer-deps for a couple of plugins that pin
-        #     @capacitor/core at a slightly different minor than ours and
-        #     for react-katex's prop-types peer.
-        #   • the lockfile gets generated on macOS dev machines and lists
-        #     @rollup/rollup-darwin-arm64 as the optional native binary;
-        #     `npm ci` won't install the linux-x64-gnu variant on the
-        #     Ubuntu runner (npm bug #4828). `npm install` resolves
-        #     optional deps per-host correctly.
-        run: npm install --legacy-peer-deps --no-audit --no-fund
+        # npm has a long-standing bug with optionalDependencies where a
+        # lockfile generated on host A skips platform-specific binaries
+        # for host B. Force-remove the lockfile + cache before install
+        # so npm fresh-resolves @rollup/rollup-linux-x64-gnu on the
+        # Ubuntu runner. --legacy-peer-deps for a couple of Capacitor
+        # plugins pinned at slightly different minor.
+        run: |
+          rm -rf package-lock.json node_modules
+          npm install --legacy-peer-deps --no-audit --no-fund
 
       - name: Install @capacitor/assets (icon + splash generator)
         run: npm install --no-save @capacitor/assets
