@@ -92,6 +92,19 @@ class PiperTtsPlugin : Plugin() {
     val dest = File(context.filesDir, "voices/$lang")
     dest.mkdirs()
     copyAssetTree(context.assets, "voices/$lang", dest)
+    // Verify the critical files landed at non-zero size — if a stage
+    // looked successful but model.onnx is 0 bytes (partial copy after
+    // a crash, etc.) the native sherpa-onnx loader will hard-segfault
+    // instead of throwing, taking down the whole WebView. Better to
+    // surface "staging incomplete" to JS as a normal rejection.
+    val model = File(dest, "model.onnx")
+    val tokens = File(dest, "tokens.txt")
+    if (!model.exists() || model.length() == 0L) {
+      throw IllegalStateException("staging_incomplete: model.onnx missing or empty after copy")
+    }
+    if (!tokens.exists() || tokens.length() == 0L) {
+      throw IllegalStateException("staging_incomplete: tokens.txt missing or empty after copy")
+    }
   }
 
   private fun copyAssetTree(assets: AssetManager, srcDir: String, destDir: File) {

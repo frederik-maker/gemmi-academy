@@ -63,12 +63,29 @@ export default function LessonPlayer() {
   const unlockAchievement = useStore((s) => s.unlockAchievement)
   const recordStruggle = useStore((s) => s.recordStruggle)
 
-  const [i, setI] = useState(0)
+  // Persist in-lesson state across remounts so the student doesn't lose
+  // their place if they open the tutor chat, background the app, navigate
+  // to settings, etc. Keyed by lessonId; wiped when finishLesson() runs.
+  const LS_KEY = `gemmi-lesson-state-${lessonId}`
+  const restored = (() => {
+    try { return JSON.parse(localStorage.getItem(LS_KEY) || 'null') } catch { return null }
+  })()
+  const [i, setI] = useState(restored?.i ?? 0)
   const [selected, setSelected] = useState(null)
-  const [phase, setPhase] = useState('intro') // intro | answering | feedback-correct | feedback-wrong | no-hearts
-  const [wrongCount, setWrongCount] = useState(0)
+  // 'intro' shows the "I'm ready" splash — skip it on restore since the
+  // student already passed through. 'answering' is the question itself.
+  const [phase, setPhase] = useState(restored ? 'answering' : 'intro')
+  const [wrongCount, setWrongCount] = useState(restored?.wrongCount ?? 0)
   const [correctStreak, setCorrectStreak] = useState(0)
-  const [bestStreak, setBestStreak] = useState(0)
+  const [bestStreak, setBestStreak] = useState(restored?.bestStreak ?? 0)
+
+  // Snapshot to localStorage on every advance.
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify({ i, wrongCount, bestStreak }))
+    } catch { /* private mode */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i, wrongCount, bestStreak, LS_KEY])
   const [exitOpen, setExitOpen] = useState(false)
   const [tutorOpen, setTutorOpen] = useState(false)
   const [tutorAutoAsk, setTutorAutoAsk] = useState(null)
@@ -198,6 +215,8 @@ export default function LessonPlayer() {
     completeLesson(lesson.id, { stars, xp })
     if (bestStreak >= 5) unlockAchievement('combo-5')
     if (stars === 3) unlockAchievement('perfect-lesson')
+    // Clear the in-lesson snapshot so a repeat attempt starts fresh.
+    try { localStorage.removeItem(LS_KEY) } catch { /* private mode */ }
     navigate(`/learn/complete/${lesson.id}?stars=${stars}&xp=${xp}&streak=${bestStreak}`)
   }
 
