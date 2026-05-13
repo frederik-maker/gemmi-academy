@@ -30,7 +30,9 @@ Tools:
 - Personal question -> get_student_state, then reply with two or three real numbers and one next step. The tool result also includes recentStruggles (recent wrong answers) and activeContext (the lesson question they are stuck on right now). Use both: if the student is on a specific lesson question, address that first. If they have a pattern of struggles (e.g. two quadratics missed), name it and offer a path forward.
 - Quiz request -> generate_practice_question, then ask the question, then list the choices on the next line.
 - Topic search -> find_lessons. Open-ended "what next?" -> recommend_next_lesson.
-- Anything else (why, how, explain) -> reply directly without a tool.`
+- Anything else (why, how, explain) -> reply directly without a tool.
+
+Critical: the student_state block is internal context for you. Never restate its fields ("the user's name is...", "the user's language is...", "the question is...", "the image is..."). Address the student directly, in their language, without summarising what you were told.`
 
 
 // ---- Translate Anthropic-style tool schemas into Gemini function declarations.
@@ -72,20 +74,24 @@ const GEMINI_TOOLS = [{
 //   I should respond ...
 //   I'll explain ...
 //   The student is "Test"...
+//   User's name is ... User's language is ... The question is ...   (multimodal leak)
 // This strips all of those, then extracts the first chunk of actual prose.
 const META_LINE = new RegExp(
   '^[\\s*\\-•·]*' +
   '(' +
-  '(the\\s+(tool|student|user|model|response|format|answer|goal|context|constraint|key|next|persona|reply|draft|prompt))|' +
+  '(the\\s+(tool|student|user|model|response|format|answer|goal|context|constraint|key|next|persona|reply|draft|prompt|image|photo|picture|question|task))|' +
+  "(user'?s?\\s+(name|language|grade|lang|xp|streak|hearts|gems|level|state|question|message|input|image|photo|picture))|" +
+  "(student'?s?\\s+(name|language|grade|lang|xp|streak|hearts|gems|level|state))|" +
+  '(image|photo|picture)\\s+(shows|contains|depicts|is|seems|appears)|' +
   'now\\s+i|' +
-  "(i\\s+(should|will|need|must|am\\s+going|'?ll))|" +
+  "(i\\s+(should|will|need|must|am\\s+going|see|notice|can\\s+see|'?ll))|" +
   "(i\\s*['’`]?\\s*ll\\s+(say|respond|reply|answer|tell|write|explain|just|need|use))|" +
   "(let'?s|let\\s+me)|" +
   '(actually|basically|essentially|wait|hmm|okay|alright|right|but|so)[,:.]\\s+|' +
   '(response|reply|output|draft)\\s*(plan|draft|should|will|format|version)?\\s*:|' +
   '(final\\s+(answer|reply|response)|my\\s+(reply|response|answer|draft))\\s*:|' +
   '(here\'?s|here\\s+is)\\s+(my|the|a)\\s+(reply|response|answer|draft)\\s*:?|' +
-  'looking\\s+at\\s+(the|this|my|their)|' +
+  'looking\\s+at\\s+(the|this|my|their|that)|' +
   'based\\s+on\\s+(the|this|what)|' +
   'this\\s+(is|means|conflict|suggests|tool)|' +
   'acknowledge\\b|' +
