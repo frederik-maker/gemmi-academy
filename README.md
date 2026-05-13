@@ -30,7 +30,7 @@ The front end is Vite and React with Tailwind, Zustand with persist middleware f
 
 For Android, Capacitor wraps the Vite build. GitHub Actions builds the APK on every push to main and publishes it to the `apk-latest` release asset. CI runs Node 22 and Java 21 (Capacitor 8 requires both) and re-scaffolds the `android/` directory fresh each build rather than committing the generated files.
 
-The mascot is a bowerbird carrying a gem. Bowerbirds collect bright objects and arrange them in their bowers. So do learners.
+The mascot is a bowerbird carrying a gem — bowerbird because "Gemmi" + the steppe bird thing, gem because the brand color is blue.
 
 ## Hackathon tracks
 
