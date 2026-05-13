@@ -1,0 +1,20 @@
+# Override Nixpacks' default `npm ci` install with `npm install
+# --legacy-peer-deps`. Two reasons:
+#
+#   1. Several deps in the project (react-katex's prop-types peer,
+#      assorted @capacitor-community plugins pinning slightly different
+#      @capacitor/core minors) won't resolve under strict npm 10. The
+#      same GitHub Actions APK build uses --legacy-peer-deps; Railway's
+#      builder otherwise tries strict and fails before vite even runs.
+#
+#   2. The lockfile's optionalDependencies for @rollup get baked from
+#      whichever host generated it (macOS → darwin-arm64). Linux runners
+#      need linux-x64-gnu, which npm ci won't restore in lockfile mode.
+#      `rm -rf package-lock.json node_modules` before install resolves
+#      the optional native binary fresh per host.
+
+[phases.install]
+cmds = [
+  "rm -rf package-lock.json node_modules",
+  "npm install --legacy-peer-deps --no-audit --no-fund",
+]
