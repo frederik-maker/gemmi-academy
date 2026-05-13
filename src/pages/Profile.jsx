@@ -2,7 +2,7 @@ import { useStore } from '../store.js'
 import { t } from '../i18n.js'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Globe, RotateCcw, Heart, GraduationCap, Gem, Check, Users, Download, Loader2, Info } from 'lucide-react'
+import { Globe, RotateCcw, Heart, GraduationCap, Gem, Check, Users, Download, Loader2, Info, Cpu } from 'lucide-react'
 import { warmAllPacks } from '../lib/offline.js'
 import Mascot from '../components/Mascot.jsx'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -118,6 +118,13 @@ export default function Profile() {
           <span className="text-xs font-extrabold text-ink-500 flex items-center gap-1">
             {hearts}/5 · <Gem className="w-3.5 h-3.5 text-cyan-500" /> 50
           </span>
+        </Row>
+        <Row
+          onClick={() => navigate('/learn/model-setup')}
+          icon={<Cpu className="w-5 h-5 text-steppe-600" />}
+          label={lang === 'kk' ? 'Офлайн ИИ-ұстазды қос' : lang === 'ru' ? 'Запустить ИИ офлайн' : 'Run Gemmi offline'}
+        >
+          <span className="text-[10px] font-extrabold uppercase tracking-wide text-steppe-600">Gemma 4 · LiteRT</span>
         </Row>
         <Row onClick={() => setConfirmReset(true)} icon={<RotateCcw className="w-5 h-5 text-ruby-500" />} label={t('reset', lang)} danger />
         <Row
