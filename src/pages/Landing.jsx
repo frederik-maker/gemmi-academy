@@ -523,20 +523,24 @@ const CHAT_HERO = {
 function PhoneScreenshot({ lang }) {
   return (
     <div className="w-full h-full bg-white flex flex-col text-ink-900">
-      {/* iOS-style status bar: leaves room for the dynamic island */}
-      <div className="px-5 pt-2.5 pb-1 flex justify-between text-[10px] font-extrabold text-ink-900">
-        <span>9:41</span>
-        <span className="flex items-center gap-1">
-          <span className="text-[9px]">●●●</span>
-          <span>5G</span>
-          <span>100%</span>
-        </span>
-      </div>
-
-      {/* Chat header — matches the live TutorChat gradient + Mascot */}
+      {/* Chat header is the topmost element on the screen — the blue
+          gradient runs edge-to-edge from the dynamic island down. The
+          iOS status bar (9:41 / 5G / 100%) sits OVER the gradient in
+          white, the way a real native app handles it when the screen
+          colour bleeds under the status bar. */}
       <div className="relative overflow-hidden text-white"
            style={{ background: 'linear-gradient(135deg, #1186f5 0%, #54c2ff 60%, #2ca6ff 100%)' }}>
-        <div className="px-3 pt-3 pb-2 flex items-center gap-2">
+        {/* Status bar overlay — flush to the top, padded around the
+            dynamic island. White on blue, like a real iOS chat app. */}
+        <div className="px-5 pt-2 pb-1 flex justify-between text-[10px] font-extrabold opacity-95">
+          <span>9:41</span>
+          <span className="flex items-center gap-1">
+            <span className="text-[9px]">●●●</span>
+            <span>5G</span>
+            <span>100%</span>
+          </span>
+        </div>
+        <div className="px-3 pt-1.5 pb-2 flex items-center gap-2">
           <div className="-ml-1 -my-1 flex-shrink-0">
             <Mascot size={44} mood="wave" />
           </div>
