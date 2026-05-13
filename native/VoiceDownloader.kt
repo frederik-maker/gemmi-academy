@@ -16,7 +16,7 @@ import java.io.FileOutputStream
  *   model.onnx          VITS model
  *   tokens.txt          phoneme vocabulary
  *   lexicon.txt         (some voices) pronunciation overrides
- *   espeak-ng-data/*    (some voices) shared espeak-ng phonemiser data
+ *   espeak-ng-data       (some voices) shared espeak-ng phonemiser data
  *   MODEL_CARD          metadata; ignored
  *
  * We flatten the leading directory so PiperEngine.load() can reference

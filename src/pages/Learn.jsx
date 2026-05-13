@@ -10,6 +10,7 @@ import Profile from './Profile.jsx'
 import Stats from './Stats.jsx'
 import Teacher from './Teacher.jsx'
 import ModelSetup from './ModelSetup.jsx'
+import VoiceSetup from './VoiceSetup.jsx'
 import Topbar from '../components/Topbar.jsx'
 import BottomNav from '../components/BottomNav.jsx'
 import TutorButton from '../components/TutorButton.jsx'
@@ -47,6 +48,7 @@ export default function Learn() {
           <Route path="profile" element={<Profile />} />
           <Route path="teacher" element={<Teacher />} />
           <Route path="model-setup" element={<ModelSetup />} />
+          <Route path="voice-setup" element={<VoiceSetup />} />
           <Route path="*" element={<Navigate to="/learn" replace />} />
         </Routes>
       </main>
