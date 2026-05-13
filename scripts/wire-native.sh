@@ -28,7 +28,11 @@ ASSETS="$ANDROID/app/src/main/assets"
 LIBS="$ANDROID/app/libs"
 
 # Pinned native dependency versions. Keep in sync with native/gemmi.gradle.
-KOTLIN_VERSION="2.0.21"
+# Kotlin 2.3.10 is the latest stable as of 2026-05 and the minimum that
+# LiteRT-LM 0.11+ accepts — its AAR was compiled with metadata 2.3.0, and
+# Kotlin compilers refuse to read AAR metadata FROM a newer version than
+# they implement (the inverse is fine).
+KOTLIN_VERSION="2.3.10"
 SHERPA_VERSION="1.13.1"
 SHERPA_SHA256="3a9b8dd27a95463c7878abf1444baaaa9c99d6fefdb21b2c11ff5ecd2a6e8ddd"
 
