@@ -29,7 +29,9 @@ export default function Mascot({ size = 180, mood = 'idle', className = '' }) {
                       : 4.5
     return (
       <motion.img
-        src="/gemmi.png"
+        // ?v= cache-buster so browsers + SW skip the previous bowerbird PNG
+        // when we regenerate it via scripts/process-mascot.py.
+        src="/gemmi.png?v=3"
         alt="Gemmi"
         width={size}
         height={size}

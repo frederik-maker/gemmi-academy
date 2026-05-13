@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowRight, Globe, Trophy, Flame, Heart, Star, Smartphone, Check, ChevronRight, Sparkles, Award } from 'lucide-react'
+import { ArrowRight, Globe, Trophy, Flame, Heart, Star, Smartphone, Check, ChevronRight, Sparkles, Award, HelpCircle, X } from 'lucide-react'
 import Mascot from '../components/Mascot.jsx'
 import LangSwitcher from '../components/LangSwitcher.jsx'
 import { subjects } from '../data/index.js'
@@ -18,6 +18,94 @@ const DEMO_LABEL = { kk: 'Демо көру', ru: 'Демо онлайн', en: '
 
 // Landing-page-specific copy. The shared ui.* dictionary in i18n.js only
 // covers in-app strings; the marketing copy below lives here.
+// Inline Android robot icon. Lucide doesn't ship one (trademark dance), so a
+// stroke-style 24px SVG with currentColor sits in for the APK download CTA.
+function AndroidIcon({ className = 'w-5 h-5' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="8" y1="2.5" x2="9.5" y2="6" />
+      <line x1="16" y1="2.5" x2="14.5" y2="6" />
+      <path d="M5 11 a7 7 0 0 1 14 0 v5 a1 1 0 0 1-1 1 H6 a1 1 0 0 1-1-1 z" />
+      <circle cx="10" cy="11" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="14" cy="11" r="0.8" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+// Popover that explains the Android sideload steps. Most users in the target
+// audience haven't installed an APK before, so the path through "downloads
+// blocked" → settings → toggle is worth spelling out.
+function InstallHelp({ lang }) {
+  const [open, setOpen] = useState(false)
+  const HELP = {
+    title: { kk: 'Қалай орнатамын', ru: 'Как установить', en: 'How to install' },
+    steps: {
+      kk: [
+        '«APK жүктеу» батырмасын бас.',
+        'Браузер ескертсе, «Бәрібір жүктеу» дегенді таңда.',
+        'Хабарландырудан немесе «Жүктелгендер» қалтасынан .apk файлын аш.',
+        'Android осы көзден орнатуға рұқсат сұраса, рұқсат бер.',
+        '«Орнату» дегенді бас.',
+      ],
+      ru: [
+        'Нажми «Скачать APK».',
+        'Если браузер предупредит, выбери «Всё равно скачать».',
+        'Открой .apk из уведомления или папки «Загрузки».',
+        'Android попросит разрешить установку из этого источника. Включи.',
+        'Нажми «Установить».',
+      ],
+      en: [
+        'Tap Download APK.',
+        'If the browser warns, choose "Download anyway".',
+        'Open the .apk from your notification or Downloads folder.',
+        'Android may ask you to allow installs from this source. Toggle it on.',
+        'Tap Install.',
+      ],
+    },
+    note: {
+      kk: 'Бұл рұқсатты тек бір рет беру керек.',
+      ru: 'Это нужно сделать только один раз.',
+      en: 'You only need to allow the permission the first time.',
+    },
+  }
+  return (
+    <div className="relative inline-block">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label={HELP.title[lang]}
+        aria-expanded={open}
+        className="w-11 h-11 rounded-full bg-white border-2 border-ink-200 grid place-items-center text-ink-500 hover:text-ink-900 hover:border-ink-400 transition-colors"
+      >
+        <HelpCircle className="w-5 h-5" strokeWidth={2.5} />
+      </button>
+      {open && (
+        <div
+          role="dialog"
+          aria-labelledby="install-help-title"
+          className="absolute z-40 mt-2 left-0 sm:left-auto sm:right-0 w-80 max-w-[calc(100vw-2rem)] rounded-2xl bg-white border-2 border-ink-100 shadow-soft p-4 text-left"
+        >
+          <div className="flex items-start justify-between mb-2">
+            <h4 id="install-help-title" className="font-extrabold text-ink-900">{HELP.title[lang]}</h4>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Close"
+              className="text-ink-400 hover:text-ink-900"
+            >
+              <X className="w-4 h-4" strokeWidth={3} />
+            </button>
+          </div>
+          <ol className="text-sm font-semibold text-ink-700 space-y-1.5 list-decimal list-inside">
+            {HELP.steps[lang].map((s, i) => <li key={i}>{s}</li>)}
+          </ol>
+          <p className="mt-3 text-xs font-bold text-ink-500">{HELP.note[lang]}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 const STR = {
   freeToPlay: { kk: 'Тегін', ru: 'Бесплатно', en: 'Free to play' },
   worksOffline: { kk: 'Желісіз де жұмыс істейді', ru: 'Работает без интернета', en: 'Works offline' },
@@ -47,9 +135,9 @@ const STR = {
     en: 'XP, streaks, hearts, gems',
   },
   feat2Body: {
-    kk: '6–14 жас аралығына арналған ойын механикасы. Күнделікті мақсат, күн қатары, жүрек жүйесі шыдамдылықты үйретеді.',
-    ru: 'Игровой контур, рассчитанный на возраст 6–14. Дневная цель, серия дней подряд, сердца, которые учат терпению.',
-    en: 'A real game loop tuned for 6–14 year olds. Daily goals, a streak that builds across days, hearts that teach patience.',
+    kk: '6 to 14 жас аралығына арналған ойын механикасы. Күнделікті мақсат, күн қатары, жүрек жүйесі шыдамдылықты үйретеді.',
+    ru: 'Игровой контур, рассчитанный на возраст 6 to 14. Дневная цель, серия дней подряд, сердца, которые учат терпению.',
+    en: 'A real game loop tuned for 6 to 14 year olds. Daily goals, a streak that builds across days, hearts that teach patience.',
   },
   feat3Title: {
     kk: 'On-device ИИ',
@@ -98,8 +186,8 @@ const STR = {
     en: 'Get Gemmi on your phone.',
   },
   dlBody: {
-    kk: 'Android үшін тегін орнатылады. iOS — PWA арқылы. Әрқашан желісіз жұмыс істеуге дайын.',
-    ru: 'Бесплатно для Android. iOS — через PWA. Готов к работе без интернета.',
+    kk: 'Android үшін тегін орнатылады. iOS-та PWA арқылы. Әрқашан желісіз жұмыс істеуге дайын.',
+    ru: 'Бесплатно для Android. На iOS через PWA. Готов к работе без интернета.',
     en: 'Install free on Android. iOS via PWA. Always offline-ready.',
   },
   dlTagline: {
@@ -159,7 +247,9 @@ function TopNav({ lang, setLang }) {
     <div className="sticky top-0 z-30 backdrop-blur bg-white/85 border-b border-ink-100">
       <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 group">
-          <img src="/gemmi-32.png" alt="" className="w-8 h-8 object-contain" />
+          {/* Use the 64px PNG with a cache-buster so retina nav stays crisp
+              and the new transparent mascot isn't masked by the SW cache. */}
+          <img src="/gemmi-64.png?v=3" alt="" className="w-8 h-8 object-contain" />
           <span className="text-lg font-extrabold tracking-tight text-ink-900">
             Gemmi<span className="text-steppe-500 ml-1">Academy</span>
           </span>
@@ -189,9 +279,9 @@ function Hero({ lang }) {
     en: 'Learn in your language.',
   }
   const sub = {
-    kk: 'Бес пән, үш тіл, 5 жастан ересекке дейін. Қателескен сұрағыңды есте сақтайтын ИИ-ұстаз.',
-    ru: 'Пять предметов, три языка, с 5 лет до взрослых. ИИ-наставник, который помнит, где ты ошибся.',
-    en: "Five subjects, three languages, ages 5 to adult. An AI tutor that remembers what you got wrong.",
+    kk: 'Жаңа ұрпақты Gemma 4-ке негізделген жекелендірілген мультимодальды ИИ-ұстазбен оқытамыз, Duolingo стиліндегі балабақшадан колледжге дейінгі сабақтар, бес пәнде үш тілде.',
+    ru: 'Учим новое поколение с персонализированным мультимодальным ИИ-наставником на Gemma 4 и Duolingo-стилем уроков от детсада до колледжа, по пяти предметам на трёх языках.',
+    en: 'Educating the next generation with a personalized, multimodal AI tutor powered by Gemma 4, alongside a Duolingo-styled curriculum from kindergarten through college in five subjects and three languages.',
   }
   return (
     <section className="relative overflow-hidden">
@@ -205,13 +295,14 @@ function Hero({ lang }) {
             {heroTitle[lang]}
           </h1>
           <p className="mt-4 text-lg text-ink-500 font-semibold max-w-lg">{sub[lang]}</p>
-          <div className="mt-7 flex flex-wrap gap-3">
+          <div className="mt-7 flex flex-wrap gap-3 items-center">
             <a href={APK_URL} className="btn-cartoon bg-ink-900 text-white px-6 py-3.5 hover:bg-ink-800">
-              <Smartphone className="w-5 h-5" /> <span className="ml-1">{DOWNLOAD_LABEL[lang]}</span>
+              <AndroidIcon className="w-5 h-5" /> <span className="ml-1">{DOWNLOAD_LABEL[lang]}</span>
             </a>
             <Link to="/learn" className="btn-success px-6 py-3.5">
               {DEMO_LABEL[lang]} →
             </Link>
+            <InstallHelp lang={lang} />
           </div>
           <div className="mt-7 flex items-center gap-5 text-sm font-bold text-ink-500">
             <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-leaf-500" /> {STR.freeToPlay[lang]}</span>
@@ -503,7 +594,7 @@ function Download({ lang }) {
           <p className="mt-3 opacity-90 font-semibold">{STR.dlBody[lang]}</p>
           <div className="mt-6 flex flex-wrap gap-3">
             <a href={APK_URL} className="btn-cartoon bg-ink-900 text-white px-5 py-3 hover:bg-black">
-              <Smartphone className="w-5 h-5" /> {DOWNLOAD_LABEL[lang]}
+              <AndroidIcon className="w-5 h-5" /> {DOWNLOAD_LABEL[lang]}
             </a>
             <Link to="/learn" className="btn-cartoon bg-white text-ink-900 px-5 py-3">
               {DEMO_LABEL[lang]} <ChevronRight className="w-4 h-4" />
@@ -521,7 +612,7 @@ function Footer({ lang }) {
     <footer className="border-t border-ink-100">
       <div className="max-w-6xl mx-auto px-5 py-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-sm font-bold text-ink-500">
-          <img src="/gemmi-32.png" alt="" className="w-6 h-6 object-contain" />
+          <img src="/gemmi-64.png?v=3" alt="" className="w-6 h-6 object-contain" />
           Gemmi Academy · Қазақша · Русский · English
         </div>
         <div className="flex gap-4 text-xs font-bold text-ink-500">
