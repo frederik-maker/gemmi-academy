@@ -126,7 +126,10 @@ export default function LessonPlayer() {
     correctAnswer: correctAnswerText,
   }), [subject.id, subject.emoji, lesson.id, lessonTitleText, unit, lang, promptText, isTrueFalse, options, correctAnswerText])
 
-  const optionsLine = isTrueFalse ? null : (options || []).map((o, i) => `${String.fromCharCode(65 + i)}) ${labelFor(o)}`).join('; ')
+  // options array holds the answer strings directly; labelFor() expects an
+  // INDEX into that array (and returns the string at that index) so passing
+  // `o` would lookup options["Gravity"] → undefined. Use the value as-is.
+  const optionsLine = isTrueFalse ? null : (options || []).map((o, i) => `${String.fromCharCode(65 + i)}) ${o}`).join('; ')
   const openTutorForQuestion = () => {
     setTutorAutoAsk(ASK_PROMPTS.question[lang](promptText, optionsLine))
     setTutorOpen(true)

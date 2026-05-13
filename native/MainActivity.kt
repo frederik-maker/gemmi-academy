@@ -1,26 +1,46 @@
 package co.bussler.gemmi
 
+import android.graphics.Color
+import android.os.Bundle
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.getcapacitor.BridgeActivity
 
 /**
  * Replaces the Java MainActivity that `cap add android` generates.
  *
- * Two reasons for the override:
- *  • Register each Kotlin Capacitor plugin we ship.
- *  • Disable "decor fits system windows" so the WebView extends edge-to-edge.
- *    Without this, Android reserves space for the status bar above the
- *    WebView and env(safe-area-inset-top) always reports 0 — which is why
- *    the LessonPlayer's X + progress bar were drawing right under the
- *    status clock. With the decorFits flag off, the WebView occupies the
- *    whole window and CSS env() returns the real status-bar height.
+ * Two responsibilities:
+ *
+ *  1. Register every Kotlin Capacitor plugin we ship. This MUST happen
+ *     before super.onCreate(), per Capacitor docs.
+ *
+ *  2. Force the WebView into edge-to-edge mode AFTER super.onCreate has
+ *     run, so the WebView's CSS env(safe-area-inset-*) returns the real
+ *     status-bar / gesture-pill heights. Done after super because
+ *     BridgeActivity's onCreate sets its own window flags; doing this
+ *     before would get clobbered. Also explicitly:
+ *       • set status bar transparent so the page background shows through
+ *       • set the appearance flag for DARK icons on a LIGHT bar — the
+ *         alternative was white icons on the app's white topbar = system
+ *         clock + battery invisible, per user complaint
+ *
+ *  styles.xml gets these via theme attrs too, but BridgeActivity sometimes
+ *  re-applies its own theme during init, blowing those away. The
+ *  WindowInsetsControllerCompat call is the authoritative path on
+ *  Android 11+.
  */
 class MainActivity : BridgeActivity() {
-  override fun onCreate(savedInstanceState: android.os.Bundle?) {
-    WindowCompat.setDecorFitsSystemWindows(window, false)
+  override fun onCreate(savedInstanceState: Bundle?) {
     registerPlugin(HelloPlugin::class.java)
     registerPlugin(PiperTtsPlugin::class.java)
     registerPlugin(GemmiTutorPlugin::class.java)
     super.onCreate(savedInstanceState)
+    WindowCompat.setDecorFitsSystemWindows(window, false)
+    window.statusBarColor = Color.TRANSPARENT
+    window.navigationBarColor = Color.TRANSPARENT
+    WindowInsetsControllerCompat(window, window.decorView).apply {
+      isAppearanceLightStatusBars = true
+      isAppearanceLightNavigationBars = true
+    }
   }
 }
