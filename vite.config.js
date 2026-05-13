@@ -13,7 +13,13 @@ function gitSha() {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  if (env.ANTHROPIC_API_KEY) process.env.ANTHROPIC_API_KEY = env.ANTHROPIC_API_KEY
+  // Forward server-side secrets to process.env for our /api/tutor
+  // middleware — loadEnv() only populates the local `env` object,
+  // so we have to mirror them manually. tutorServer.js reads from
+  // process.env at request time.
+  for (const k of ['ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_API_KEY']) {
+    if (env[k] && !process.env[k]) process.env[k] = env[k]
+  }
 
   return {
     define: {
