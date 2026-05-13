@@ -16,6 +16,18 @@ function pickSpeechLang(lang) {
 }
 
 // ---- Speech recognition (microphone → text) --------------------------------
+//
+// Three reliability fixes layered on top of the bare Web Speech API,
+// because the user reported the mic UI getting stuck forever:
+//
+//   • Explicit permission request before .start() (some Android WebViews
+//     never trigger the prompt automatically and just silently fail).
+//   • r.onstart is the source of truth for "really listening", not the
+//     return of .start() — the API can hand back without errors and
+//     never actually open the mic. We only flip the listening flag when
+//     onstart fires.
+//   • Hard timeout: 12s of silence (no onresult AND no onstart) aborts
+//     and surfaces an error to the UI so the spinner doesn't hang.
 export function useSpeechRecognition(lang) {
   const SR = typeof window !== 'undefined'
     ? window.SpeechRecognition || window.webkitSpeechRecognition
@@ -27,8 +39,18 @@ export function useSpeechRecognition(lang) {
   const recogRef = useRef(null)
   const finalRef = useRef('')
   const onFinalRef = useRef(null)
+  const timeoutRef = useRef(null)
 
-  const start = useCallback((onFinal) => {
+  const armTimeout = useCallback((ms, msg) => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    timeoutRef.current = setTimeout(() => {
+      try { recogRef.current?.abort() } catch {}
+      setListening(false)
+      setError(msg)
+    }, ms)
+  }, [])
+
+  const start = useCallback(async (onFinal) => {
     if (!supported) {
       setError('not_supported')
       return
@@ -38,11 +60,30 @@ export function useSpeechRecognition(lang) {
     finalRef.current = ''
     onFinalRef.current = onFinal
 
+    // Pre-flight: explicitly ask for the mic. On Capacitor + Android
+    // 13+ the WebView won't auto-prompt for the SpeechRecognition API,
+    // and recognition just hangs forever showing "listening" without
+    // actually getting audio. Calling getUserMedia first triggers the
+    // OS-level dialog; we close the resulting stream immediately and
+    // hand off to SpeechRecognition.
+    try {
+      const stream = await navigator.mediaDevices?.getUserMedia?.({ audio: true })
+      stream?.getTracks().forEach((t) => t.stop())
+    } catch (e) {
+      setError(e?.name === 'NotAllowedError' ? 'mic_permission_denied' : (e?.message || 'mic_failed'))
+      return
+    }
+
     const r = new SR()
     r.continuous = true
     r.interimResults = true
     r.lang = pickSpeechLang(lang)
 
+    r.onstart = () => {
+      setListening(true)
+      // No-speech-detected timeout: if no result in 12s, bail.
+      armTimeout(12_000, 'no_speech')
+    }
     r.onresult = (e) => {
       let live = ''
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -51,9 +92,16 @@ export function useSpeechRecognition(lang) {
         else live += t
       }
       setInterim(live)
+      // Reset timeout while we're getting partials.
+      armTimeout(12_000, 'no_speech')
     }
-    r.onerror = (e) => setError(e.error || 'speech_error')
+    r.onerror = (e) => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      setError(e.error || 'speech_error')
+      setListening(false)
+    }
     r.onend = () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
       setListening(false)
       const text = (finalRef.current + interim).trim()
       if (text && onFinalRef.current) onFinalRef.current(text)
@@ -61,19 +109,25 @@ export function useSpeechRecognition(lang) {
     recogRef.current = r
     try {
       r.start()
-      setListening(true)
+      // Safety: if onstart never fires within 5s, the recognition
+      // silently failed — surface that rather than spin forever.
+      armTimeout(5_000, 'recognition_failed_to_start')
     } catch (e) {
       setError(e?.message || 'start_failed')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [SR, lang, supported])
+  }, [SR, lang, supported, armTimeout])
 
   const stop = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
     try { recogRef.current?.stop() } catch {}
   }, [])
 
   // Clean up on unmount
-  useEffect(() => () => { try { recogRef.current?.abort() } catch {} }, [])
+  useEffect(() => () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    try { recogRef.current?.abort() } catch {}
+  }, [])
 
   return { supported, listening, interim, error, start, stop }
 }

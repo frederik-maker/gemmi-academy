@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   X, Send, Wrench, Check, Loader2, ChevronRight, Cpu,
-  Mic, MicOff, Volume2, VolumeX, Camera,
+  Mic, MicOff, Volume2, VolumeX, Camera, Play,
 } from 'lucide-react'
 import { useStore } from '../store.js'
 import { streamTutor } from '../lib/tutorClient.js'
@@ -11,6 +11,53 @@ import { useSpeechRecognition, speak, stopSpeaking, ttsSupported } from '../lib/
 import Mascot from './Mascot.jsx'
 import LatexText from './LatexText.jsx'
 import GemPattern from './GemPattern.jsx'
+
+// Resize a base64 JPEG (or any Image-loadable string) to a max edge of
+// 1024px, returns a fresh base64 JPEG. Used both by the file-input path
+// and the @capacitor/camera path so the resulting payload size is the
+// same regardless of source.
+async function resizeBase64ToJpeg(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      const maxEdge = 1024
+      const scale = Math.min(maxEdge / img.width, maxEdge / img.height, 1)
+      const w = Math.max(1, Math.round(img.width * scale))
+      const h = Math.max(1, Math.round(img.height * scale))
+      const c = document.createElement('canvas')
+      c.width = w
+      c.height = h
+      c.getContext('2d').drawImage(img, 0, 0, w, h)
+      const dataUrl = c.toDataURL('image/jpeg', 0.85)
+      resolve({ data: dataUrl.split(',')[1], mimeType: 'image/jpeg', previewUrl: dataUrl })
+    }
+    img.onerror = () => reject(new Error('image_decode_failed'))
+    img.src = src
+  })
+}
+
+// Use @capacitor/camera when running natively — input[type=file]
+// capture="environment" is unreliable on Android (the WebView falls
+// back to the file picker / gallery, which is what the user kept
+// landing in). On the web, the file input is still the right path.
+async function takePhotoNative() {
+  try {
+    const mod = await import('@capacitor/camera')
+    const { Capacitor } = await import('@capacitor/core')
+    if (!Capacitor.isNativePlatform?.()) return null
+    const photo = await mod.Camera.getPhoto({
+      quality: 85,
+      allowEditing: false,
+      resultType: mod.CameraResultType.DataUrl,
+      source: mod.CameraSource.Camera,         // <- forces actual camera, not gallery
+      correctOrientation: true,
+    })
+    if (!photo?.dataUrl) return null
+    return resizeBase64ToJpeg(photo.dataUrl)
+  } catch (_) {
+    return null
+  }
+}
 
 // All strings in three languages — the tutor itself is the polish.
 const STR = {
@@ -157,34 +204,38 @@ export default function TutorChat({ open, onClose, context, autoAsk }) {
     context,
   }), [state.profile, state.grade, state.lang, state.xp, state.streak, state.hearts, state.gems, state.completedLessons, state.recentStruggles, context])
 
-  // Read a chosen photo, resize to a 1024-max edge JPEG, encode as base64.
-  // We resize client-side so we send a few hundred KB instead of multi-MB
-  // originals — keeps Gemini's image-token bill in check.
-  const onPickFile = (e) => {
+  // Web fallback only — on native we go through @capacitor/camera which
+  // forces the actual rear camera instead of the gallery picker.
+  const onPickFile = async (e) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file || !file.type?.startsWith('image/')) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      const img = new Image()
-      img.onload = () => {
-        const maxEdge = 1024
-        const scale = Math.min(maxEdge / img.width, maxEdge / img.height, 1)
-        const w = Math.max(1, Math.round(img.width * scale))
-        const h = Math.max(1, Math.round(img.height * scale))
-        const canvas = document.createElement('canvas')
-        canvas.width = w
-        canvas.height = h
-        const ctx = canvas.getContext('2d')
-        ctx.drawImage(img, 0, 0, w, h)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
-        const base64 = dataUrl.split(',')[1]
-        setPendingImage({ data: base64, mimeType: 'image/jpeg', previewUrl: dataUrl })
-      }
-      img.onerror = () => setError({ kk: 'Сурет ашылмады', ru: 'Не удалось открыть фото', en: 'Could not open photo' }[lang])
-      img.src = ev.target.result
+    try {
+      const reader = new FileReader()
+      const dataUrl = await new Promise((resolve, reject) => {
+        reader.onload = (ev) => resolve(ev.target.result)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      const img = await resizeBase64ToJpeg(dataUrl)
+      setPendingImage(img)
+    } catch {
+      setError({ kk: 'Сурет ашылмады', ru: 'Не удалось открыть фото', en: 'Could not open photo' }[lang])
     }
-    reader.readAsDataURL(file)
+  }
+
+  // Camera button handler: native camera first, file-picker fallback.
+  const onCameraTap = async () => {
+    const native = await takePhotoNative()
+    if (native) {
+      setPendingImage(native)
+      return
+    }
+    // Web (or native plugin not available) → fall back to the hidden
+    // file input. The input's capture="environment" attribute hints to
+    // mobile Chrome that it should open the camera, though it's not
+    // honored everywhere.
+    fileInputRef.current?.click()
   }
 
   const send = async (text, opts = {}) => {
@@ -275,6 +326,19 @@ export default function TutorChat({ open, onClose, context, autoAsk }) {
       })
     }
   }
+
+  // Surface voice errors in the same banner as fetch errors so the user
+  // sees "permission denied" or "no speech" instead of a stuck spinner.
+  useEffect(() => {
+    if (!voice.error) return
+    const msg = {
+      mic_permission_denied: { kk: 'Микрофонға рұқсат жоқ', ru: 'Нет доступа к микрофону', en: 'Microphone permission denied' }[lang],
+      no_speech: { kk: 'Сөз естілмеді — қайта көр', ru: 'Не услышал — попробуй ещё', en: "Didn't catch that — try again" }[lang],
+      recognition_failed_to_start: { kk: 'Сөйлеу тану қосылмады', ru: 'Распознавание речи не запустилось', en: "Speech recognition couldn't start" }[lang],
+      not_supported: { kk: 'Бұл құрылғы дауыс жазуды қолдамайды', ru: 'Голосовой ввод не поддерживается', en: 'Voice input not supported on this device' }[lang],
+    }[voice.error] || voice.error
+    setError(msg)
+  }, [voice.error, lang])
 
   const toggleTts = () => {
     if (ttsOn) {
@@ -465,7 +529,7 @@ export default function TutorChat({ open, onClose, context, autoAsk }) {
                 className="hidden"
                 onChange={onPickFile}
               />
-              <button type="button" onClick={() => fileInputRef.current?.click()}
+              <button type="button" onClick={onCameraTap}
                 disabled={streaming}
                 aria-label={{ kk: 'Сурет түсіру', ru: 'Сделать фото', en: 'Take a photo' }[lang]}
                 className="w-11 h-11 rounded-full bg-steppe-50 text-steppe-600 hover:bg-steppe-100 disabled:bg-ink-50 disabled:text-ink-300 grid place-items-center flex-shrink-0"
@@ -596,6 +660,7 @@ function MessageBubble({ message, lang, onOpenLesson }) {
       )}
       <AssistantBubble>
         <div className="whitespace-pre-wrap"><LatexText>{text}</LatexText></div>
+        {text && <SpeakButton text={text} lang={lang} />}
         {message.tools?.filter((t) => t.name === 'generate_practice_question' && t.output?.ok).map((t, i) => (
           <PracticeCard key={`p${i}`} q={t.output} lang={lang} />
         ))}
@@ -604,6 +669,32 @@ function MessageBubble({ message, lang, onOpenLesson }) {
         ))}
       </AssistantBubble>
     </div>
+  )
+}
+
+// Small play icon inline with each assistant message. Tapping plays the
+// message through speak(), which prefers Piper (sherpa-onnx, offline)
+// when the requested-lang voice has been downloaded or is bundled
+// (kk-KZ is bundled in the APK), and falls back to Web Speech otherwise.
+function SpeakButton({ text, lang }) {
+  const [playing, setPlaying] = useState(false)
+  const onClick = async () => {
+    if (playing) { stopSpeaking(); setPlaying(false); return }
+    setPlaying(true)
+    try { await speak(text, lang) }
+    catch { /* ignore — fallback chain inside speak handles errors */ }
+    finally { setPlaying(false) }
+  }
+  if (!ttsSupported) return null
+  return (
+    <button onClick={onClick}
+      className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-extrabold text-ink-400 hover:text-steppe-600"
+      aria-label="Speak"
+    >
+      {playing
+        ? <><Volume2 className="w-3.5 h-3.5" strokeWidth={2.5} />{{ kk: 'Тоқтату', ru: 'Остановить', en: 'Stop' }[lang]}</>
+        : <><Play className="w-3 h-3" strokeWidth={3} fill="currentColor" />{{ kk: 'Дыбыспен', ru: 'Озвучить', en: 'Speak' }[lang]}</>}
+    </button>
   )
 }
 

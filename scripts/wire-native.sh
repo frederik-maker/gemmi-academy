@@ -98,6 +98,38 @@ fi
 # ---------------------------------------------------------------------------
 # 3. Replace Java MainActivity with our Kotlin one (registers plugins).
 # ---------------------------------------------------------------------------
+step "Patching AndroidManifest for camera + mic permissions"
+# The @capacitor/camera plugin reads its required CAMERA permission from
+# its own manifest, but mic recording (WebSpeech / SpeechRecognition) is
+# done from the WebView and needs RECORD_AUDIO declared by the app itself.
+# Also add legacy WRITE_EXTERNAL_STORAGE for older Androids that gate
+# camera-saved photos behind it.
+MANIFEST="$ANDROID/app/src/main/AndroidManifest.xml"
+if [[ -f "$MANIFEST" ]] && ! grep -q "android.permission.RECORD_AUDIO" "$MANIFEST"; then
+  python3 - "$MANIFEST" <<'PY'
+import pathlib, re, sys
+p = pathlib.Path(sys.argv[1])
+src = p.read_text()
+inject = (
+  '    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n'
+  '    <uses-permission android:name="android.permission.CAMERA" />\n'
+  '    <uses-feature android:name="android.hardware.camera" android:required="false" />\n'
+  '    <uses-feature android:name="android.hardware.microphone" android:required="false" />\n'
+)
+# Insert right before the existing INTERNET permission line.
+src = re.sub(
+  r'(    <uses-permission android:name="android\.permission\.INTERNET" />)',
+  inject + r'\1',
+  src,
+  count=1,
+)
+p.write_text(src)
+PY
+  echo "    ✓ added RECORD_AUDIO + CAMERA permissions"
+else
+  echo "    ✓ already present"
+fi
+
 step "Patching styles.xml for light status bar + edge-to-edge insets"
 # Status bar default = white text. The app's WebView body is white. Result:
 # system clock + battery icons are invisible. Add windowLightStatusBar=true
