@@ -5,6 +5,32 @@ import { ArrowRight, Globe, Trophy, Flame, Heart, Star, Smartphone, Check, Chevr
 import Mascot from '../components/Mascot.jsx'
 import LangSwitcher from '../components/LangSwitcher.jsx'
 import GemPattern from '../components/GemPattern.jsx'
+
+// Realistic iPhone 15-style frame: rounded edges, dynamic island, side
+// buttons, volume rocker, mute switch. Children render inside the screen
+// area — we clamp to the same aspect ratio (~9:19.5) the real device
+// uses so the chat preview matches what users see on their phone.
+function IPhoneFrame({ children }) {
+  return (
+    <div className="relative w-full" style={{ aspectRatio: '9 / 19.5' }}>
+      {/* Outer chassis */}
+      <div className="absolute inset-0 rounded-[44px] bg-ink-900 shadow-[0_30px_80px_-20px_rgba(11,21,48,0.45),inset_0_0_0_2px_rgba(255,255,255,0.06)]" />
+      {/* Inner bezel */}
+      <div className="absolute inset-[3px] rounded-[42px] bg-black" />
+      {/* Side buttons */}
+      <div className="absolute -left-[2px] top-[88px] w-[3px] h-[28px] rounded-l-sm bg-ink-700" />
+      <div className="absolute -left-[2px] top-[140px] w-[3px] h-[44px] rounded-l-sm bg-ink-700" />
+      <div className="absolute -left-[2px] top-[200px] w-[3px] h-[44px] rounded-l-sm bg-ink-700" />
+      <div className="absolute -right-[2px] top-[170px] w-[3px] h-[68px] rounded-r-sm bg-ink-700" />
+      {/* Screen */}
+      <div className="absolute inset-[10px] rounded-[34px] overflow-hidden bg-white">
+        {children}
+        {/* Dynamic island, drawn over the screen content */}
+        <div className="absolute top-[8px] left-1/2 -translate-x-1/2 w-[96px] h-[26px] rounded-full bg-black z-10" />
+      </div>
+    </div>
+  )
+}
 import { subjects } from '../data/index.js'
 import { getManifest } from '../data/packs.js'
 import { LANGS, t, ui } from '../i18n.js'
@@ -435,11 +461,13 @@ function Hero({ lang }) {
         <div className="relative">
           <motion.div
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-            className="mx-auto w-[320px] phone-frame relative">
-            <PhoneScreenshot lang={lang} />
+            className="mx-auto w-[300px] relative">
+            <IPhoneFrame>
+              <PhoneScreenshot lang={lang} />
+            </IPhoneFrame>
           </motion.div>
-          <FloatingBadge style={{ top: 16, right: 4 }} accent="bg-sun-100 text-sun-700" icon={<Flame className="w-4 h-4" fill="currentColor" />} label={STR.streakBadge[lang]} />
-          <FloatingBadge style={{ bottom: 24, left: -8 }} accent="bg-leaf-50 text-leaf-500" icon={<Award className="w-4 h-4" />} label={STR.xpEarnedBadge[lang]} />
+          <FloatingBadge style={{ top: 26, right: -10 }} accent="bg-sun-100 text-sun-700" icon={<Flame className="w-4 h-4" fill="currentColor" />} label={STR.streakBadge[lang]} />
+          <FloatingBadge style={{ bottom: 34, left: -18 }} accent="bg-leaf-50 text-leaf-500" icon={<Award className="w-4 h-4" />} label={STR.xpEarnedBadge[lang]} />
         </div>
       </div>
     </section>
@@ -449,57 +477,69 @@ function Hero({ lang }) {
 // Hero phone preview: shows the AI tutor actually doing the thing instead
 // of a Duolingo-style learning-path mockup. The whole pitch of the project
 // is the agent + on-device LLM, so the hero should demonstrate the agent.
-// We pick the multiplication-mistake recovery because it's:
-//   (a) instantly readable for anyone who's ever multiplied two single
-//       digits and gotten it wrong,
-//   (b) shows the tutor doing *pedagogy* (mental-math trick) not just
-//       reciting a fact,
-//   (c) localised cleanly to ru/kk without losing the trick.
+//
+// We picked "why is the sky blue" because:
+//   (a) every kid asks it at some point — instant relatability
+//   (b) the answer benefits from real explanation rather than a fact
+//       lookup, so showing it surfaces what the tutor is for
+//   (c) translates cleanly across all three target UI languages
+//   (d) the visual emoji + short paragraph is more eye-catching than
+//       a math derivation in the hero
 const CHAT_HERO = {
   question: {
-    kk: '7 × 8 = 54 деп жаздым 😕',
-    ru: 'Я написал 7 × 8 = 54 😕',
-    en: 'I got 7 × 8 = 54 wrong 😕',
+    kk: 'Аспан неге көк? 🌤️',
+    ru: 'Почему небо синее? 🌤️',
+    en: 'Why is the sky blue? 🌤️',
   },
-  reply: {
-    kk: ['Жақын! Дұрысы 7 × 8 = ', '56', '.'],
-    ru: ['Почти! Правильно 7 × 8 = ', '56', '.'],
-    en: ['Close! 7 × 8 = ', '56', ', actually.'],
+  replyOpening: {
+    kk: 'Күн сәулесі — ',
+    ru: 'Солнечный свет — это ',
+    en: 'Sunlight looks white, but it\'s really ',
   },
-  trickLabel: {
-    kk: 'Есте сақтау тәсілі',
-    ru: 'Способ запомнить',
-    en: 'A way to remember',
+  replyHighlight: {
+    kk: 'кемпірқосақтың барлық түсі',
+    ru: 'все цвета радуги',
+    en: 'every colour of the rainbow',
   },
-  trick: {
-    kk: '7 × 8 = (7 × 10) − (7 × 2) = 70 − 14 = 56',
-    ru: '7 × 8 = (7 × 10) − (7 × 2) = 70 − 14 = 56',
-    en: '7 × 8 = (7 × 10) − (7 × 2) = 70 − 14 = 56',
+  replyMiddle: {
+    kk: ' араласқан ақ жарық. Ауадағы молекулалар көк түсті көп шашыратады, сондықтан күндіз бүкіл аспан көк болып көрінеді. ',
+    ru: ', смешанных в один белый луч. Молекулы воздуха разбрасывают синий свет сильнее всего, и поэтому днём небо выглядит синим. ',
+    en: ' mixed together. Air molecules scatter the blue part much more than the rest, so the whole daytime sky looks blue. ',
   },
-  closingLine: {
-    kk: 'Жаттығу сұрағын көрейік пе?',
-    ru: 'Попробуем ещё пример?',
-    en: 'Want to try another one?',
+  replyHook: {
+    kk: 'Күн батқанда қызыл болатынын білесің бе?',
+    ru: 'А знаешь, почему на закате оно становится красным?',
+    en: 'Want to know why it goes red at sunset?',
   },
-  practice: { kk: '✨ Жаттығу', ru: '✨ Практика', en: '✨ Practice' },
+  practice: {
+    kk: '✨ Күн батуы туралы',
+    ru: '✨ Про закат',
+    en: '✨ Tell me about sunsets',
+  },
   askPlaceholder: { kk: 'Кез келген сұрақ…', ru: 'Спроси что-нибудь…', en: 'Ask anything…' },
   titleLabel: { kk: 'AI-ҰСТАЗ', ru: 'AI-НАСТАВНИК', en: 'AI TUTOR' },
 }
 
 function PhoneScreenshot({ lang }) {
   return (
-    <div className="bg-white aspect-[9/19.5] flex flex-col text-ink-900">
-      {/* Status bar */}
-      <div className="px-4 py-2 flex justify-between text-[10px] font-bold text-ink-700">
+    <div className="w-full h-full bg-white flex flex-col text-ink-900">
+      {/* iOS-style status bar: leaves room for the dynamic island */}
+      <div className="px-5 pt-2.5 pb-1 flex justify-between text-[10px] font-extrabold text-ink-900">
         <span>9:41</span>
-        <span>📶 100%</span>
+        <span className="flex items-center gap-1">
+          <span className="text-[9px]">●●●</span>
+          <span>5G</span>
+          <span>100%</span>
+        </span>
       </div>
 
-      {/* Chat header */}
+      {/* Chat header — matches the live TutorChat gradient + Mascot */}
       <div className="relative overflow-hidden text-white"
            style={{ background: 'linear-gradient(135deg, #1186f5 0%, #54c2ff 60%, #2ca6ff 100%)' }}>
-        <div className="px-3 pt-1.5 pb-2 flex items-center gap-2">
-          <div className="w-9 h-9 rounded-full bg-white/20 grid place-items-center text-lg">🐦</div>
+        <div className="px-3 pt-3 pb-2 flex items-center gap-2">
+          <div className="-ml-1 -my-1 flex-shrink-0">
+            <Mascot size={44} mood="wave" />
+          </div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-extrabold leading-tight">Gemmi</div>
             <div className="text-[9px] font-extrabold uppercase tracking-wider opacity-90 mt-0.5">{CHAT_HERO.titleLabel[lang]}</div>
@@ -518,18 +558,18 @@ function PhoneScreenshot({ lang }) {
         </div>
         {/* Assistant bubble */}
         <div className="flex items-end gap-1.5">
-          <div className="w-6 h-6 rounded-full bg-steppe-100 grid place-items-center text-sm flex-shrink-0">🐦</div>
+          <div className="flex-shrink-0 w-7 h-7 rounded-full bg-steppe-100 overflow-hidden grid place-items-center">
+            <Mascot size={32} mood="idle" />
+          </div>
           <div className="max-w-[82%] bg-white border-2 border-ink-100 rounded-2xl rounded-bl-md px-3 py-2 text-[11px] leading-relaxed text-ink-900 shadow-sm">
-            {CHAT_HERO.reply[lang][0]}
-            <span className="font-extrabold text-leaf-600">{CHAT_HERO.reply[lang][1]}</span>
-            {CHAT_HERO.reply[lang][2]}
-            <div className="mt-1.5 text-[9px] font-extrabold uppercase tracking-wide text-steppe-600">{CHAT_HERO.trickLabel[lang]}</div>
-            <div className="mt-0.5 font-mono text-[10px] text-ink-700">{CHAT_HERO.trick[lang]}</div>
-            <div className="mt-1.5 text-[11px]">{CHAT_HERO.closingLine[lang]}</div>
+            {CHAT_HERO.replyOpening[lang]}
+            <span className="font-extrabold text-steppe-600">{CHAT_HERO.replyHighlight[lang]}</span>
+            {CHAT_HERO.replyMiddle[lang]}
+            <span className="font-extrabold text-ink-900">{CHAT_HERO.replyHook[lang]}</span>
           </div>
         </div>
         {/* Practice chip the tutor offered */}
-        <div className="ml-7 inline-flex items-center gap-1 rounded-full bg-steppe-50 border-2 border-steppe-200 px-2.5 py-1 text-[10px] font-extrabold text-steppe-700">
+        <div className="ml-8 inline-flex items-center gap-1 rounded-full bg-steppe-50 border-2 border-steppe-200 px-2.5 py-1 text-[10px] font-extrabold text-steppe-700">
           {CHAT_HERO.practice[lang]}
         </div>
       </div>
@@ -542,6 +582,10 @@ function PhoneScreenshot({ lang }) {
           {CHAT_HERO.askPlaceholder[lang]}
         </div>
         <div className="w-7 h-7 rounded-full bg-steppe-500 text-white grid place-items-center text-xs">▶</div>
+      </div>
+      {/* iOS home indicator */}
+      <div className="flex justify-center pb-1.5">
+        <div className="w-[100px] h-[3px] rounded-full bg-ink-900/60" />
       </div>
     </div>
   )
