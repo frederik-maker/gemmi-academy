@@ -1,74 +1,77 @@
 package co.bussler.gemmi
 
-import android.content.Context
-import com.google.mediapipe.tasks.genai.llminference.LlmInference
-import java.util.concurrent.CountDownLatch
+import com.google.ai.edge.litertlm.Backend
+import com.google.ai.edge.litertlm.Engine
+import com.google.ai.edge.litertlm.EngineConfig
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.runBlocking
 
 /**
- * Thin wrapper around MediaPipe's LlmInference for a single Gemma .task model.
- * Loaded once per app session (cached in GemmiTutorPlugin.runtime) so we
- * don't pay the multi-second model-init cost on every chat message.
+ * Wraps Google's LiteRT-LM Engine + Conversation for a single Gemma 4 E2B
+ * model. Loaded once per app session (cached in GemmiTutorPlugin.runtime)
+ * because Engine.initialize() takes ~10s the first time — model paging in
+ * from disk + KV-cache warmup.
  *
- * The .task bundle is downloaded once into filesDir/llm/model.task (via
- * ModelDownloader, same code path as Piper voice tarballs) and loaded
- * from disk — no asset bundling because Gemma 3 1B int4 is ~580 MB.
+ * Why LiteRT-LM not MediaPipe Tasks GenAI: Gemma 4 ships as .litertlm
+ * (a bundle understood only by LiteRT-LM, not by tasks-genai's older
+ * .task loader). LiteRT-LM also exposes a proper Kotlin Flow for
+ * streaming, which maps cleanly onto our existing partial-result
+ * propagation pattern.
  *
- * Streaming: tasks-genai's generateResponseAsync overload accepts a
- * ProgressListener<String> directly (SAM-converted from a `(partial, done)`
- * lambda). The Builder does NOT have setResultListener despite some
- * sample code on the internet suggesting otherwise — the listener lives
- * at the call site.
+ * Conversation lifetime: we create one Conversation per generate() call
+ * because the JS-side composes the chat history into a single prompt
+ * (gemma chat template, see tutorProviders.nativeProvider). A long-lived
+ * stateful Conversation would duplicate that prompt-building work and
+ * waste context.
  */
-class GemmaRuntime(
-  context: Context,
-  modelPath: String,
-  maxTokens: Int,
-  topK: Int,
-  @Suppress("UNUSED_PARAMETER") temperature: Float,
-) {
+class GemmaRuntime(modelPath: String) {
 
-  private val llm: LlmInference
+  private val engine: Engine
 
   init {
-    val opts = LlmInference.LlmInferenceOptions.builder()
-      .setModelPath(modelPath)
-      .setMaxTokens(maxTokens)
-      .setMaxTopK(topK)
-      .build()
-    llm = LlmInference.createFromOptions(context, opts)
+    val cfg = EngineConfig(
+      modelPath = modelPath,
+      backend = Backend.CPU(),
+    )
+    engine = Engine(cfg)
+    engine.initialize()  // ~10s; callers must invoke off the UI thread
   }
 
   /**
-   * Run `prompt` through the model, calling onDelta with each partial chunk
-   * as it arrives. Returns the assembled full text when the model signals
-   * isDone. Blocks the calling thread — invoke from a coroutine on an IO
-   * or Default dispatcher.
+   * Synchronously synthesize a response to `prompt`, invoking onDelta for
+   * each streamed chunk. Blocks the calling thread — invoke from a
+   * coroutine on Dispatchers.IO.
+   *
+   * LiteRT-LM emits Flow<String>; we collect blockingly and rethrow any
+   * collected exception so the plugin's generate() can reject the JS
+   * promise on failure.
    */
   fun generate(prompt: String, onDelta: (String) -> Unit): String {
     val sb = StringBuilder()
-    val latch = CountDownLatch(1)
-    // ProgressListener<String> = void run(String partial, boolean done).
-    // tasks-genai's generateResponseAsync returns a ListenableFuture; we
-    // don't await it directly because the listener tells us when done,
-    // and the future would just give us the same final string.
-    llm.generateResponseAsync(prompt) { partial, isDone ->
-      if (!partial.isNullOrEmpty()) {
-        sb.append(partial)
-        onDelta(partial)
+    var thrown: Throwable? = null
+    engine.createConversation().use { conv ->
+      runBlocking {
+        conv.sendMessageAsync(prompt)
+          .onEach { token ->
+            val s = token.toString()
+            if (s.isNotEmpty()) {
+              sb.append(s)
+              onDelta(s)
+            }
+          }
+          .catch { thrown = it }
+          .onCompletion { /* close happens via .use */ }
+          .collect { /* values handled in onEach */ }
       }
-      if (isDone) latch.countDown()
     }
-    latch.await()
+    thrown?.let { throw it }
     return sb.toString()
   }
 
-  /**
-   * MediaPipe's LlmInference doesn't expose a mid-generation cancel API.
-   * Closing aborts the in-flight async call; callers should reload via
-   * the constructor before generating again. GemmiTutorPlugin handles this:
-   * cancel() sets runtime = null, the next generate() reconstructs it.
-   */
+  /** Tear down the underlying native runtime. Idempotent. */
   fun close() {
-    try { llm.close() } catch (_: Exception) { /* idempotent */ }
+    try { engine.close() } catch (_: Exception) { /* already closed */ }
   }
 }

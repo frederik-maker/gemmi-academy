@@ -94,6 +94,45 @@ fi
 # ---------------------------------------------------------------------------
 # 3. Replace Java MainActivity with our Kotlin one (registers plugins).
 # ---------------------------------------------------------------------------
+step "Patching styles.xml for light status bar + edge-to-edge insets"
+# Status bar default = white text. The app's WebView body is white. Result:
+# system clock + battery icons are invisible. Add windowLightStatusBar=true
+# so the OS uses DARK icons on the light status bar, and force-translate
+# WindowInsets to env(safe-area-inset-*) by enabling layoutInDisplayCutout.
+STYLES="$ANDROID/app/src/main/res/values/styles.xml"
+if [[ -f "$STYLES" ]] && ! grep -q "windowLightStatusBar" "$STYLES"; then
+  python3 - "$STYLES" <<'PY'
+import pathlib, re, sys
+p = pathlib.Path(sys.argv[1])
+src = p.read_text()
+# Inject into the AppTheme.NoActionBarLaunch style block (the one the
+# Activity uses). Status bar attrs there cover both launch and post-launch.
+inject = '''
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+'''
+src = re.sub(
+    r'(<style name="AppTheme\.NoActionBarLaunch"[^>]*>)',
+    r'\1' + inject,
+    src,
+    count=1,
+)
+# Also inject into AppTheme.NoActionBar (used post-splash) so the dark
+# icons persist after the splash screen hands off.
+src = re.sub(
+    r'(<style name="AppTheme\.NoActionBar"[^>]*>)',
+    r'\1' + inject,
+    src,
+    count=1,
+)
+p.write_text(src)
+PY
+  echo "    ✓ patched windowLightStatusBar + cutoutMode into both theme blocks"
+else
+  echo "    ✓ already patched"
+fi
+
 step "Replacing Java MainActivity with Kotlin"
 mkdir -p "$PKG"
 if [[ -f "$PKG/MainActivity.java" ]]; then

@@ -127,24 +127,13 @@ class GemmiTutorPlugin : Plugin() {
     val modelFile = File(context.filesDir, "llm/model.task")
     if (!modelFile.exists()) return call.reject("model_not_installed")
 
-    val engine = modelConfig?.optJSONObject("engine") ?: JSONObject()
-    val maxTokens = engine.optInt("maxTokens", 1024)
-    val topK = engine.optInt("topK", 40)
-    val temperature = engine.optDouble("temperature", 0.7).toFloat()
-
     // Cancel any prior generation cleanly before starting a new one.
     cancelCurrent()
     currentCall = call
 
     currentJob = scope.launch {
       try {
-        val rt = runtime ?: GemmaRuntime(
-          context = context,
-          modelPath = modelFile.absolutePath,
-          maxTokens = maxTokens,
-          topK = topK,
-          temperature = temperature,
-        ).also { runtime = it }
+        val rt = runtime ?: GemmaRuntime(modelFile.absolutePath).also { runtime = it }
         val full = withContext(Dispatchers.Default) {
           rt.generate(prompt) { delta ->
             notifyListeners("generate_delta", JSObject().put("text", delta))

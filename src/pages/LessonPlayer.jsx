@@ -13,16 +13,20 @@ import TutorChat from '../components/TutorChat.jsx'
 // Pre-built auto-ask prompts the LessonPlayer hands to TutorChat when the
 // student opens the chat from inside a question. Kept here, not in TutorChat,
 // because the prompts are specific to the lesson-question flow.
+// We embed the question text + options into the prompt rather than rely on
+// studentState.context — the cloud agent gets <student_state> JSON in a
+// preface message, but small chats often skip past it. Inlining the
+// question keeps the model anchored on what we're actually discussing.
 const ASK_PROMPTS = {
   question: {
-    kk: 'Осы сұрақты бірге талдайық. Не сұрайтынын түсіндіріп берші.',
-    ru: 'Помоги мне разобрать этот вопрос. Что от меня хотят?',
-    en: 'Walk me through this question. What is it actually asking?',
+    kk: (q, opts) => `Мынау сұрақ:\n\n"${q}"${opts ? `\n\nНұсқалар: ${opts}` : ''}\n\nБірге талдайық — не сұрап тұр, қалай ойлау керек?`,
+    ru: (q, opts) => `Вот вопрос:\n\n«${q}»${opts ? `\n\nВарианты: ${opts}` : ''}\n\nПомоги разобрать: что спрашивают и как рассуждать?`,
+    en: (q, opts) => `Here's the question I'm stuck on:\n\n"${q}"${opts ? `\n\nOptions: ${opts}` : ''}\n\nWalk me through it — what's it actually asking, and how should I think about it?`,
   },
   wrong: {
-    kk: '%s деп жауап бердім, бірақ дұрысы %s екен. Неге қателескенімді түсіндіріп берші.',
-    ru: 'Я выбрал «%s», а правильный ответ — «%s». Объясни, в чём моя ошибка.',
-    en: 'I picked "%s" but the right answer is "%s". Explain where I went wrong.',
+    kk: (q, opts, picked, correct) => `Сұрақ:\n\n"${q}"${opts ? `\n\nНұсқалар: ${opts}` : ''}\n\nМен «${picked}» дедім, бірақ дұрысы «${correct}» екен. Қателіктің мәнін түсіндір.`,
+    ru: (q, opts, picked, correct) => `Вопрос:\n\n«${q}»${opts ? `\n\nВарианты: ${opts}` : ''}\n\nЯ выбрал «${picked}», правильный ответ — «${correct}». Объясни, где я ошибся.`,
+    en: (q, opts, picked, correct) => `Question:\n\n"${q}"${opts ? `\n\nOptions: ${opts}` : ''}\n\nI picked "${picked}" but the right answer is "${correct}". Explain where I went wrong.`,
   },
 }
 
@@ -122,16 +126,13 @@ export default function LessonPlayer() {
     correctAnswer: correctAnswerText,
   }), [subject.id, subject.emoji, lesson.id, lessonTitleText, unit, lang, promptText, isTrueFalse, options, correctAnswerText])
 
+  const optionsLine = isTrueFalse ? null : (options || []).map((o, i) => `${String.fromCharCode(65 + i)}) ${labelFor(o)}`).join('; ')
   const openTutorForQuestion = () => {
-    setTutorAutoAsk(ASK_PROMPTS.question[lang])
+    setTutorAutoAsk(ASK_PROMPTS.question[lang](promptText, optionsLine))
     setTutorOpen(true)
   }
   const openTutorForWrongAnswer = (studentAnswerText) => {
-    const template = ASK_PROMPTS.wrong[lang]
-    const filled = template
-      .replace('%s', String(studentAnswerText ?? ''))
-      .replace('%s', String(correctAnswerText ?? ''))
-    setTutorAutoAsk(filled)
+    setTutorAutoAsk(ASK_PROMPTS.wrong[lang](promptText, optionsLine, String(studentAnswerText ?? ''), String(correctAnswerText ?? '')))
     setTutorOpen(true)
   }
 
@@ -188,7 +189,17 @@ export default function LessonPlayer() {
 
   // ── render ──
   return (
-    <div className="min-h-screen bg-white" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+    <div
+      className="min-h-screen bg-white"
+      style={{
+        // max() so a WebView that doesn't report insets (older Capacitor,
+        // emulator without bezels) still leaves room for the status bar
+        // and the gesture nav. 32px tops the typical 24-28px status bar
+        // on a notchless phone; 16px covers the gesture pill.
+        paddingTop: 'max(env(safe-area-inset-top), 32px)',
+        paddingBottom: 'max(env(safe-area-inset-bottom), 16px)',
+      }}
+    >
       <div className="max-w-md mx-auto px-4 pt-4 pb-32 min-h-screen flex flex-col">
         {/* Header: exit + progress + hearts */}
         <div className="flex items-center gap-3">

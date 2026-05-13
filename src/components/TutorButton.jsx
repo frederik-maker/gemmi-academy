@@ -24,11 +24,11 @@ export default function TutorButton({ context }) {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="fixed right-3 z-40 inline-flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full bg-steppe-500 hover:bg-steppe-600 text-white font-extrabold text-sm shadow-lg shadow-steppe-500/30"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 76px)' }}
+        className="fixed right-3 z-40 inline-flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full bg-ink-900 hover:bg-ink-800 text-white font-extrabold text-sm shadow-lg shadow-ink-900/30 border border-ink-700"
+        style={{ bottom: 'calc(max(env(safe-area-inset-bottom, 0px), 16px) + 76px)' }}
         aria-label="Open AI tutor"
       >
-        <MessageCircle className="w-4 h-4" strokeWidth={3} />
+        <MessageCircle className="w-4 h-4 text-sun-300" strokeWidth={3} />
         <span className="leading-none">{LABEL[lang]}</span>
       </motion.button>
       <TutorChat open={open} onClose={() => setOpen(false)} context={context} />

@@ -445,14 +445,17 @@ export default function TutorChat({ open, onClose, context, autoAsk }) {
               </div>
             )}
 
-            {/* Input bar */}
+            {/* Input bar — px-4 gives the camera & send buttons clearance
+                from the phone edges; pb-3 + safe-area-inset keeps the row
+                off the gesture pill on edge-to-edge Androids. */}
             <form
               onSubmit={(e) => {
                 e.preventDefault()
                 if (streaming) return
                 if (input.trim() || pendingImage) send(input.trim())
               }}
-              className={`${pendingImage ? '' : 'border-t border-ink-100'} px-3 py-3 bg-white flex gap-2 items-center`}
+              className={`${pendingImage ? '' : 'border-t border-ink-100'} px-4 pt-3 bg-white flex gap-2 items-center`}
+              style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
             >
               <input
                 ref={fileInputRef}

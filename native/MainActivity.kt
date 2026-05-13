@@ -1,18 +1,23 @@
 package co.bussler.gemmi
 
+import androidx.core.view.WindowCompat
 import com.getcapacitor.BridgeActivity
 
 /**
- * Replaces the Java MainActivity that `cap add android` generates. We need
- * a Kotlin MainActivity because every native plugin we register here is
- * written in Kotlin and Java's class lookup at registerPlugin time prefers
- * matching language for the lambda-style additions Capacitor 8 uses.
+ * Replaces the Java MainActivity that `cap add android` generates.
  *
- * The Java version (auto-generated empty subclass of BridgeActivity) is
- * deleted by scripts/wire-native.sh before this file is dropped in.
+ * Two reasons for the override:
+ *  • Register each Kotlin Capacitor plugin we ship.
+ *  • Disable "decor fits system windows" so the WebView extends edge-to-edge.
+ *    Without this, Android reserves space for the status bar above the
+ *    WebView and env(safe-area-inset-top) always reports 0 — which is why
+ *    the LessonPlayer's X + progress bar were drawing right under the
+ *    status clock. With the decorFits flag off, the WebView occupies the
+ *    whole window and CSS env() returns the real status-bar height.
  */
 class MainActivity : BridgeActivity() {
   override fun onCreate(savedInstanceState: android.os.Bundle?) {
+    WindowCompat.setDecorFitsSystemWindows(window, false)
     registerPlugin(HelloPlugin::class.java)
     registerPlugin(PiperTtsPlugin::class.java)
     registerPlugin(GemmiTutorPlugin::class.java)
