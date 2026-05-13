@@ -1,7 +1,12 @@
 // Dev-time tutor proxy. Imported from vite.config.js and registered as
-// middleware on /api/tutor. Keeps the Gemini API key server-side (it never
-// touches the bundle) and resolves tool_use turns against the executor in
+// middleware on /api/tutor. Keeps the API key server-side (it never touches
+// the bundle) and resolves tool_use turns against the executor in
 // tutorTools.js before streaming the assistant's final reply to the client.
+//
+// Same SDK key as Gemini (the Gemma 4 family is served from the Gemini API
+// endpoint), but the model param is `gemma-4-26b-a4b-it` — keeping
+// the project consistent end-to-end on Gemma 4, MoE for the cloud,
+// dense E2B for on-device.
 
 import { GoogleGenAI, Type } from '@google/genai'
 import { TUTOR_TOOLS, executeTool } from './tutorTools.js'
@@ -298,16 +303,21 @@ export async function handleTutorRequest(req, res) {
   }
 
   try {
-    // Multi-turn loop: keep calling Gemini until it stops emitting tool_use.
+    // Multi-turn loop: keep calling Gemma until it stops emitting tool_use.
+    //
+    // We use the Mixture-of-Experts Gemma 4 — 26B total params with only
+    // 4B active per token, so it's API-cheap and fast, while still good
+    // at function-calling and multilingual instruction following. This
+    // matches the on-device story: same model family on both sides, just
+    // a larger size in the cloud where we have the headroom.
+    //
+    // Gemma 4 31B (dense) leaks its planning chain ("Constraints check:",
+    // bullet drafts) into the visible reply in ~half of turns. The MoE
+    // variant is dramatically tidier; the strip-preamble scrubber later
+    // in this file handles the residual cases.
     for (let turn = 0; turn < 6; turn++) {
       const stream = await client.models.generateContentStream({
-        // Gemini 2.5 Flash. Cloud fallback only; the actual product story is
-        // the on-device Gemma 4 E2B-it that ships via LiteRT.
-        // Gemma 4 31B over the public API has too much variance for chat-with-
-        // tools (leaks "Constraints check:" / planning bullets / quoted
-        // drafts in ~half of replies). Flash is reliable, follows the system
-        // prompt, and is faster.
-        model: 'gemini-2.5-flash',
+        model: 'gemma-4-26b-a4b-it',
         contents,
         config: {
           systemInstruction: SYSTEM_PROMPT,

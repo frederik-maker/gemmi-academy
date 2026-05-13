@@ -1,15 +1,16 @@
 // Pluggable tutor providers.
 //
 // The chat UI imports `selectProvider()` and an interface that yields
-// streaming events. Today there are two implementations:
+// streaming events. Today there are two implementations, both Gemma 4:
 //
-//   • `cloudProvider`, POSTs to /api/tutor (Gemini 2.5 Flash, multi-tool agent).
-//   • `nativeProvider`, talks to a Capacitor plugin that exposes a local
-//     Gemma model via Google LiteRT on Android. Activates automatically when
-//     window.GemmiTutor is present (set by the native plugin's JS shim).
+//   • `cloudProvider`, POSTs to /api/tutor (Gemma 4 26B-A4B MoE via the
+//     Gemini API endpoint, multi-tool agent).
+//   • `nativeProvider`, talks to a Capacitor plugin that exposes Gemma 4
+//     E2B-it running on-device via Google LiteRT-LM. Activates automatically
+//     when window.GemmiTutor is present (set by the native plugin's JS shim).
 //
-// Adding a third provider (WebLLM, MediaPipe Tasks GenAI, Ollama, etc.) means
-// implementing { name, available(), streamReply() } and adding to PROVIDERS.
+// Same model family on both sides — the cloud just gets the larger MoE
+// variant since we have the headroom there.
 
 import { TUTOR_TOOLS, executeTool } from './tutorTools.js'
 

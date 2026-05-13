@@ -1,6 +1,6 @@
 # Gemmi Academy
 
-Gemmi Academy is a trilingual K-12 AI tutor for Kazakh kids. The tutor is Gemma 4 running on-device, with a Gemini cloud fallback for the web version. Lessons cover five subjects (math, science, history, society, English) from age five through college in Қазақша, Русский, and English. Live at **https://gemmi.ai**, also installable as an [APK](https://github.com/frederik-maker/gemmi-academy/releases/latest).
+Gemmi Academy is a trilingual K-12 AI tutor for Kazakh kids. The tutor is Gemma 4 end-to-end: on-device Gemma 4 E2B-it via LiteRT-LM in the APK, Gemma 4 26B-A4B (MoE) via the Gemini API in the cloud. Same model family on both sides, same four-tool agent loop. Lessons cover five subjects (math, science, history, society, English) from age five through college in Қазақша, Русский, and English. Live at **https://gemmi.ai**, also installable as an [APK](https://github.com/frederik-maker/gemmi-academy/releases/latest).
 
 Built for the [Gemma 4 Good Hackathon](https://kaggle.com/competitions/gemma-4-good-hackathon). Submitted to the **Main Track**, the **Future of Education** impact track, and the **LiteRT** special technology track.
 
@@ -10,7 +10,7 @@ The primary tutor is **Gemma 4 E2B-it running on-device through LiteRT**, inside
 
 That matters because the target audience is kids in rural Kazakhstan on entry-level Android phones with connectivity that drops out for minutes at a time. The downloader in `native/ModelDownloader.kt` assumes the 2 GB transfer will lose connection several times. Each attempt resumes from the `.part` file's current length via HTTP Range, retries with exponential backoff (1s up to 30s, eight attempts per call), tolerates `SSLException` / `SocketTimeoutException` / mid-stream `IOException`, and SHA-256-verifies the bytes before atomically renaming the `.part` to the final destination. The Hugging Face resolve URL serves through Cloudfront with `Accept-Ranges: bytes`, so the resumes work cleanly.
 
-Until the on-device model is installed, the tutor uses a cloud path: `src/lib/tutorServer.js` forwards multimodal messages to Gemini 2.5 Flash via `@google/genai`. The cloud path also handles the web app, since running a 2 GB local model in a browser tab isn't an option. Both paths share the same four-tool registry, the same system prompt, and the same chain-of-thought scrubber, so the lesson UI calls `streamReply()` regardless of which path served the response. `tutorProviders.js` prefers `nativeProvider` whenever it is available.
+Until the on-device model is installed, the tutor uses a cloud path: `src/lib/tutorServer.js` forwards multimodal messages to **Gemma 4 26B-A4B** (the mixture-of-experts variant with only ~4B active params per token, fast and cheap to serve) via `@google/genai`. The MoE Gemma 4 is served from the same Gemini API endpoint as Gemini itself — same SDK, same key, just `model: 'gemma-4-26b-a4b-it'`. The cloud path handles the web app since running a 2 GB local model in a browser tab isn't an option, and it covers the moment between APK install and `.litertlm` download on Android. Both paths share the same four-tool registry, the same system prompt, and the same chain-of-thought scrubber, so the lesson UI calls `streamReply()` regardless of which Gemma instance served the response. `tutorProviders.js` prefers `nativeProvider` whenever it is available.
 
 ## The tutor
 
@@ -47,7 +47,7 @@ npm install
 npm run dev
 ```
 
-Add `GEMINI_API_KEY` to `.env.local` first so the cloud backup path is wired up. The dev server starts Vite and registers an Express middleware at `/api/tutor` that proxies to Gemini. The same module runs in production from `server/index.js`, so dev and prod behave identically.
+Add `GEMINI_API_KEY` to `.env.local` first so the cloud backup path is wired up. The env var keeps its `GEMINI_` name because the Gemma 4 family is served from the Gemini API endpoint — same auth, just `model: 'gemma-4-26b-a4b-it'` on the wire. Grab a free key at https://aistudio.google.com/apikey. The dev server starts Vite and registers an Express middleware at `/api/tutor`. The same module runs in production from `server/index.js`, so dev and prod behave identically.
 
 To build a fresh APK locally (Android SDK and Java 21 required):
 
