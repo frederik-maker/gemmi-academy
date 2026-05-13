@@ -32,6 +32,12 @@ android {
             abiFilters 'arm64-v8a'
         }
     }
+    // Don't compress .onnx model files inside the APK so sherpa-onnx can
+    // mmap them via AssetManager. Otherwise Android's AssetManager
+    // decompresses the whole 28 MB file into RAM on read.
+    androidResources {
+        noCompress.addAll(['onnx', 'task'])
+    }
     packagingOptions {
         jniLibs {
             pickFirsts += ['**/libc++_shared.so']

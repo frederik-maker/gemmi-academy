@@ -35,6 +35,18 @@ SHERPA_SHA256="3a9b8dd27a95463c7878abf1444baaaa9c99d6fefdb21b2c11ff5ecd2a6e8ddd"
 step() { printf "\n\033[1;36m▸\033[0m %s\n" "$*"; }
 fail() { printf "\033[1;31m✗\033[0m %s\n" "$*" >&2; exit 1; }
 
+# Cross-platform sha256. macOS dev machines have `shasum`; Linux CI has
+# `sha256sum`. Fall back to Python (always available) if neither exists.
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+  else
+    python3 -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())" "$1"
+  fi
+}
+
 [[ -d "$ANDROID" ]] || fail "android/ not found. Run: npx cap add android"
 [[ -d "$NATIVE"  ]] || fail "native/ not found. Are you running from repo root?"
 
@@ -117,6 +129,38 @@ for f in voice.config.json model.config.json; do
   fi
 done
 
+step "Bundling kk-KZ Piper voice into APK assets"
+# The kk voice tarball (26 MB) is fetched + extracted into the APK so
+# Kazakh TTS works out of the box on first launch — no setup tap, no
+# 25 MB download. Other voices (en/ru) stay opt-in via PiperTts.downloadVoice
+# because Web Speech already handles them well.
+KK_TAR="$NATIVE/.voice-kk.tar.bz2"
+KK_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-kk_KZ-iseke-x_low.tar.bz2"
+KK_SHA="1a995dd9a0e0760942af5c7a3d84a688344ddb17dc51e95942848f855c9347eb"
+KK_ASSETS="$ASSETS/voices/kk"
+if [[ -f "$KK_ASSETS/model.onnx" ]] && [[ -f "$KK_ASSETS/tokens.txt" ]]; then
+  echo "    ✓ kk voice already extracted in assets"
+else
+  if [[ ! -f "$KK_TAR" ]] || [[ "$(sha256_of "$KK_TAR")" != "$KK_SHA" ]]; then
+    curl -fSL --retry 3 --retry-delay 2 -o "$KK_TAR" "$KK_URL"
+    if [[ "$(sha256_of "$KK_TAR")" != "$KK_SHA" ]]; then
+      rm -f "$KK_TAR"
+      fail "sha256 mismatch on kk voice tarball"
+    fi
+  fi
+  rm -rf "$KK_ASSETS"
+  mkdir -p "$KK_ASSETS"
+  # Strip the leading "vits-piper-kk_KZ-iseke-x_low/" segment with --strip 1.
+  tar -xjf "$KK_TAR" -C "$KK_ASSETS" --strip-components=1
+  # Sherpa-onnx looks for model.onnx by stable name; some voices ship it
+  # with the voice id baked in.
+  if [[ ! -f "$KK_ASSETS/model.onnx" ]]; then
+    onnx=$(find "$KK_ASSETS" -maxdepth 1 -name '*.onnx' -print -quit)
+    [[ -n "$onnx" ]] && mv "$onnx" "$KK_ASSETS/model.onnx"
+  fi
+  echo "    ✓ extracted to $KK_ASSETS ($(du -sh "$KK_ASSETS" | cut -f1))"
+fi
+
 # ---------------------------------------------------------------------------
 # 6. Fetch sherpa-onnx-$SHERPA_VERSION.aar from the k2-fsa GitHub release
 #    into android/app/libs/. We verify sha256 to avoid shipping a corrupt
@@ -128,18 +172,6 @@ step "Fetching sherpa-onnx $SHERPA_VERSION AAR"
 mkdir -p "$LIBS"
 AAR="$LIBS/sherpa-onnx-$SHERPA_VERSION.aar"
 URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/v$SHERPA_VERSION/sherpa-onnx-$SHERPA_VERSION.aar"
-
-# Cross-platform sha256. macOS dev machines have `shasum`; Linux CI has
-# `sha256sum`. Fall back to Python (always available) if neither exists.
-sha256_of() {
-  if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$1" | awk '{print $1}'
-  elif command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$1" | awk '{print $1}'
-  else
-    python3 -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())" "$1"
-  fi
-}
 
 if [[ -f "$AAR" ]] && [[ "$(sha256_of "$AAR")" == "$SHERPA_SHA256" ]]; then
   echo "    ✓ already present and sha256 matches"

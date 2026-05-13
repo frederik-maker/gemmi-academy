@@ -25,6 +25,7 @@ const STR = {
   download: { kk: 'Жүктеу', ru: 'Скачать', en: 'Download' },
   downloading: { kk: 'Жүктелуде…', ru: 'Загрузка…', en: 'Downloading…' },
   ready:    { kk: 'Орнатылған', ru: 'Установлен', en: 'Installed' },
+  bundled:  { kk: 'Қосылған', ru: 'Встроен', en: 'Built in' },
   retry:    { kk: 'Қайта көру', ru: 'Повторить', en: 'Retry' },
   langName: {
     kk: { kk: 'Қазақша', ru: 'Қазақша', en: 'Kazakh' },
@@ -116,7 +117,8 @@ export default function VoiceSetup() {
         <div className="mt-5 space-y-3">
           {LANGS.map((l) => {
             const st = states[l]
-            const phase = phases[l] || (st?.state === 'ready' ? 'done' : 'idle')
+            const isBundled = st?.state === 'bundled'
+            const phase = phases[l] || (st?.state === 'ready' || isBundled ? 'done' : 'idle')
             const sizeMb = st?.sizeBytes ? Math.round(st.sizeBytes / (1024 * 1024)) : null
             const prog = progress[l]
             const pct = prog?.total ? Math.round((prog.downloaded / prog.total) * 100) : 0
@@ -145,7 +147,7 @@ export default function VoiceSetup() {
                     {phase === 'done' && (
                       <div className="flex items-center gap-1 text-leaf-600 text-xs font-extrabold">
                         <Check className="w-4 h-4" strokeWidth={3} />
-                        {STR.ready[lang]}
+                        {isBundled ? STR.bundled[lang] : STR.ready[lang]}
                       </div>
                     )}
                     {phase === 'downloading' && (

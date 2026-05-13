@@ -106,7 +106,9 @@ async function tryPiperSpeak(text, lang) {
   if (!piper) return false
   try {
     const st = await piper.voiceState(lang)
-    if (st?.state !== 'ready') return false
+    // 'bundled' = shipped inside the APK (kk_KZ), 'ready' = user downloaded
+    // it into filesDir. Both mean the engine can speak now.
+    if (st?.state !== 'ready' && st?.state !== 'bundled') return false
     await piper.speak({ text, lang })
     return true
   } catch {

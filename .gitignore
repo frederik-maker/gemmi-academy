@@ -22,3 +22,4 @@ public/gemmi-source.*
 scripts/test-strip-preamble.mjs
 scripts/smoke-test-tutor.sh
 scripts/smoke-test-multimodal.sh
+native/.voice-kk.tar.bz2
