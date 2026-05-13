@@ -204,14 +204,19 @@ def main() -> int:
         fg.save(assets_dir / "icon-foreground.png", optimize=True)
         print("  + assets/icon-foreground.png (1024×1024, padded for adaptive icon)")
 
-        # Background: solid Gemmi brand blue (#1186f5).
-        bg = Image.new("RGBA", (ICON_SIDE, ICON_SIDE), (0x11, 0x86, 0xf5, 0xff))
+        # Background: warm cream — the bird/gem are already steppe-blue, so
+        # painting the background blue too (the previous #1186f5) drowned the
+        # whole figure on the home screen. Pale sun cream gives high contrast
+        # without looking like a corporate logo. Keep in sync with the
+        # --iconBackgroundColor flag in .github/workflows/build-apk.yml.
+        BG_RGB = (0xfe, 0xf6, 0xdc)
+        bg = Image.new("RGBA", (ICON_SIDE, ICON_SIDE), (*BG_RGB, 0xff))
         bg.save(assets_dir / "icon-background.png", optimize=True)
-        print("  + assets/icon-background.png (solid #1186f5)")
+        print(f"  + assets/icon-background.png (solid #{''.join(f'{c:02x}' for c in BG_RGB)})")
 
-        # Combined legacy icon: bird on blue, full bleed. Some Android
+        # Combined legacy icon: bird on cream, full bleed. Some Android
         # launchers fall back to this for pre-O adaptive support.
-        combined = Image.new("RGBA", (ICON_SIDE, ICON_SIDE), (0x11, 0x86, 0xf5, 0xff))
+        combined = Image.new("RGBA", (ICON_SIDE, ICON_SIDE), (*BG_RGB, 0xff))
         combined.paste(bird, (bx, by), bird)
         combined.save(assets_dir / "icon-only.png", optimize=True)
         print("  + assets/icon-only.png (legacy fallback)")

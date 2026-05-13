@@ -10,7 +10,10 @@ export default function BottomNav() {
       isActive ? 'text-steppe-600' : 'text-ink-400'
     }`
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-30 border-t border-ink-100 bg-white/95 backdrop-blur">
+    <nav
+      className="fixed bottom-0 inset-x-0 z-30 border-t border-ink-100 bg-white/95 backdrop-blur"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
       <div className="max-w-md mx-auto grid grid-cols-3">
         <NavLink end to="/learn" className={link}>
           <Home className="w-6 h-6" strokeWidth={2.5} />

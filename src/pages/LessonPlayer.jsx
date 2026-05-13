@@ -188,7 +188,7 @@ export default function LessonPlayer() {
 
   // ── render ──
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <div className="max-w-md mx-auto px-4 pt-4 pb-32 min-h-screen flex flex-col">
         {/* Header: exit + progress + hearts */}
         <div className="flex items-center gap-3">
@@ -354,7 +354,10 @@ function FeedbackBar({ phase, lang, onCheck, onNext, onAskGemmi, correctText, wr
   const correct = phase === 'feedback-correct'
   const wrong = phase === 'feedback-wrong'
   return (
-    <div className={`fixed inset-x-0 bottom-0 z-20 ${correct ? 'bg-emerald-50' : wrong ? 'bg-rose-50' : 'bg-white'} border-t-2 ${correct ? 'border-leaf-400' : wrong ? 'border-ruby-500' : 'border-ink-100'}`}>
+    <div
+      className={`fixed inset-x-0 bottom-0 z-20 ${correct ? 'bg-emerald-50' : wrong ? 'bg-rose-50' : 'bg-white'} border-t-2 ${correct ? 'border-leaf-400' : wrong ? 'border-ruby-500' : 'border-ink-100'}`}
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
       <div className="max-w-md mx-auto px-4 py-3">
         {phase === 'answering' && (
           <button disabled={!canCheck} onClick={onCheck} className="btn-success w-full">

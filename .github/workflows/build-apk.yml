@@ -69,9 +69,11 @@ jobs:
         # build the Android-12+ style splash from the launcher icon plus a
         # color background. Saves ~2 MB vs shipping six-density splash images.
         run: |
+          # Icon background: warm cream (#fef6dc) so the steppe-blue bird/gem
+          # foreground stays visible. Splash keeps the brand blue.
           npx @capacitor/assets generate --android --assetPath assets \
-            --iconBackgroundColor '#1186f5' \
-            --iconBackgroundColorDark '#0b1530' \
+            --iconBackgroundColor '#fef6dc' \
+            --iconBackgroundColorDark '#fef6dc' \
             --splashBackgroundColor '#1186f5' \
             --splashBackgroundColorDark '#0b1530'
 
