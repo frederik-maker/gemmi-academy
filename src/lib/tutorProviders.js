@@ -32,6 +32,20 @@ function sanitize(messages) {
     .filter((m) => m.content.length > 0)
 }
 
+// Inside the Capacitor APK the WebView serves from https://localhost/, so a
+// bare `/api/tutor` fetch goes nowhere. Detect native and prefix with the
+// real public origin. On the web this stays a relative path so the same
+// bundle works regardless of which domain (gemmi.ai, www.gemmi.ai, Railway
+// preview) actually hosts it.
+const API_BASE = (() => {
+  try {
+    if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()) {
+      return 'https://www.gemmi.ai'
+    }
+  } catch { /* fall through */ }
+  return ''
+})()
+
 export const cloudProvider = {
   id: 'cloud',
   name: 'Cloud tutor',
@@ -41,7 +55,7 @@ export const cloudProvider = {
     return true
   },
   async *streamReply({ messages, studentState, signal }) {
-    const res = await fetch('/api/tutor', {
+    const res = await fetch(`${API_BASE}/api/tutor`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages: sanitize(messages), studentState }),

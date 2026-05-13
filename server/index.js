@@ -19,7 +19,21 @@ app.use(compression())
 
 // Tutor SSE endpoint. Express's default body parsing breaks streaming, so we
 // route it before any middleware that touches the request stream.
+//
+// CORS: the Capacitor APK serves its WebView from https://localhost/ (not
+// gemmi.ai), so a fetch to gemmi.ai/api/tutor is cross-origin. We allow
+// any origin because the endpoint is unauthenticated anyway — the API key
+// lives server-side, and rate limiting / abuse handling is a separate
+// concern from CORS.
+app.options('/api/tutor', (_req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  res.setHeader('Access-Control-Max-Age', '86400')
+  res.status(204).end()
+})
 app.post('/api/tutor', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
   handleTutorRequest(req, res).catch((err) => {
     console.error('[tutor]', err?.message || err)
     if (!res.headersSent) {
