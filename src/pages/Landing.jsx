@@ -446,46 +446,102 @@ function Hero({ lang }) {
   )
 }
 
+// Hero phone preview: shows the AI tutor actually doing the thing instead
+// of a Duolingo-style learning-path mockup. The whole pitch of the project
+// is the agent + on-device LLM, so the hero should demonstrate the agent.
+// We pick the multiplication-mistake recovery because it's:
+//   (a) instantly readable for anyone who's ever multiplied two single
+//       digits and gotten it wrong,
+//   (b) shows the tutor doing *pedagogy* (mental-math trick) not just
+//       reciting a fact,
+//   (c) localised cleanly to ru/kk without losing the trick.
+const CHAT_HERO = {
+  question: {
+    kk: '7 × 8 = 54 деп жаздым 😕',
+    ru: 'Я написал 7 × 8 = 54 😕',
+    en: 'I got 7 × 8 = 54 wrong 😕',
+  },
+  reply: {
+    kk: ['Жақын! Дұрысы 7 × 8 = ', '56', '.'],
+    ru: ['Почти! Правильно 7 × 8 = ', '56', '.'],
+    en: ['Close! 7 × 8 = ', '56', ', actually.'],
+  },
+  trickLabel: {
+    kk: 'Есте сақтау тәсілі',
+    ru: 'Способ запомнить',
+    en: 'A way to remember',
+  },
+  trick: {
+    kk: '7 × 8 = (7 × 10) − (7 × 2) = 70 − 14 = 56',
+    ru: '7 × 8 = (7 × 10) − (7 × 2) = 70 − 14 = 56',
+    en: '7 × 8 = (7 × 10) − (7 × 2) = 70 − 14 = 56',
+  },
+  closingLine: {
+    kk: 'Жаттығу сұрағын көрейік пе?',
+    ru: 'Попробуем ещё пример?',
+    en: 'Want to try another one?',
+  },
+  practice: { kk: '✨ Жаттығу', ru: '✨ Практика', en: '✨ Practice' },
+  askPlaceholder: { kk: 'Кез келген сұрақ…', ru: 'Спроси что-нибудь…', en: 'Ask anything…' },
+  titleLabel: { kk: 'AI-ҰСТАЗ', ru: 'AI-НАСТАВНИК', en: 'AI TUTOR' },
+}
+
 function PhoneScreenshot({ lang }) {
   return (
-    <div className="bg-gradient-to-b from-steppe-50 to-white aspect-[9/19.5] flex flex-col">
-      <div className="px-4 py-3 flex justify-between text-[10px] font-bold text-ink-700">
+    <div className="bg-white aspect-[9/19.5] flex flex-col text-ink-900">
+      {/* Status bar */}
+      <div className="px-4 py-2 flex justify-between text-[10px] font-bold text-ink-700">
         <span>9:41</span>
         <span>📶 100%</span>
       </div>
-      <div className="px-4 flex items-center justify-between">
-        <span className="pill bg-ink-100 text-ink-700 text-[10px]">{lang === 'kk' ? '🇰🇿 KZ' : lang === 'ru' ? '🇷🇺 RU' : '🇬🇧 EN'}</span>
-        <div className="flex gap-1.5">
-          <span className="pill bg-orange-100 text-orange-700 text-[10px]"><Flame className="w-3 h-3" fill="currentColor" /> 14</span>
-          <span className="pill bg-sky-100 text-sky-700 text-[10px]">💎 60</span>
-          <span className="pill bg-rose-100 text-rose-700 text-[10px]"><Heart className="w-3 h-3" fill="currentColor" /> 5</span>
+
+      {/* Chat header */}
+      <div className="relative overflow-hidden text-white"
+           style={{ background: 'linear-gradient(135deg, #1186f5 0%, #54c2ff 60%, #2ca6ff 100%)' }}>
+        <div className="px-3 pt-1.5 pb-2 flex items-center gap-2">
+          <div className="w-9 h-9 rounded-full bg-white/20 grid place-items-center text-lg">🐦</div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-extrabold leading-tight">Gemmi</div>
+            <div className="text-[9px] font-extrabold uppercase tracking-wider opacity-90 mt-0.5">{CHAT_HERO.titleLabel[lang]}</div>
+          </div>
+          <span className="w-6 h-6 rounded-full bg-white/15 grid place-items-center text-xs">✕</span>
         </div>
       </div>
-      <div className="px-4 mt-3 text-xs font-extrabold text-ink-500">{ui.unit[lang]} 2</div>
-      <div className="px-4 text-base font-extrabold">{subjects[0].units[1].title[lang]}</div>
-      <div className="mt-5 flex-1 flex flex-col items-center gap-5">
-        {[
-          { icon: '➕', done: true, color: '#1186f5', offset: 0 },
-          { icon: '➖', done: true, color: '#1186f5', offset: 40 },
-          { icon: '🧠', done: false, current: true, color: '#1186f5', offset: 0 },
-        ].map((n, i) => (
-          <div
-            key={i}
-            className="relative rounded-full w-16 h-16 grid place-items-center text-2xl font-extrabold text-white"
-            style={{
-              transform: `translateX(${n.offset}px)`,
-              background: n.done ? '#fbbf24' : n.current ? n.color : '#d6dceb',
-              boxShadow: `0 6px 0 0 ${n.done ? '#b45309' : n.current ? '#0e6ce0' : '#aebbd9'}`,
-            }}>
-            {n.icon}
-            {n.current && <div className="absolute -top-7 text-[10px] font-extrabold bg-white border border-ink-200 px-2 py-0.5 rounded-full whitespace-nowrap text-ink-800">{STR.startBadge[lang]}</div>}
+
+      {/* Messages */}
+      <div className="flex-1 px-3 py-3 space-y-2.5 overflow-hidden bg-gradient-to-b from-steppe-50/40 to-white">
+        {/* User bubble */}
+        <div className="flex justify-end">
+          <div className="max-w-[82%] bg-gradient-to-br from-steppe-500 to-steppe-700 text-white rounded-2xl rounded-br-md px-3 py-2 text-[11px] leading-relaxed font-semibold shadow-sm">
+            {CHAT_HERO.question[lang]}
           </div>
-        ))}
+        </div>
+        {/* Assistant bubble */}
+        <div className="flex items-end gap-1.5">
+          <div className="w-6 h-6 rounded-full bg-steppe-100 grid place-items-center text-sm flex-shrink-0">🐦</div>
+          <div className="max-w-[82%] bg-white border-2 border-ink-100 rounded-2xl rounded-bl-md px-3 py-2 text-[11px] leading-relaxed text-ink-900 shadow-sm">
+            {CHAT_HERO.reply[lang][0]}
+            <span className="font-extrabold text-leaf-600">{CHAT_HERO.reply[lang][1]}</span>
+            {CHAT_HERO.reply[lang][2]}
+            <div className="mt-1.5 text-[9px] font-extrabold uppercase tracking-wide text-steppe-600">{CHAT_HERO.trickLabel[lang]}</div>
+            <div className="mt-0.5 font-mono text-[10px] text-ink-700">{CHAT_HERO.trick[lang]}</div>
+            <div className="mt-1.5 text-[11px]">{CHAT_HERO.closingLine[lang]}</div>
+          </div>
+        </div>
+        {/* Practice chip the tutor offered */}
+        <div className="ml-7 inline-flex items-center gap-1 rounded-full bg-steppe-50 border-2 border-steppe-200 px-2.5 py-1 text-[10px] font-extrabold text-steppe-700">
+          {CHAT_HERO.practice[lang]}
+        </div>
       </div>
-      <div className="px-4 py-3 border-t border-ink-100 flex justify-around text-[10px] font-extrabold text-ink-500">
-        <span className="text-steppe-600">⌂ {ui.learn[lang]}</span>
-        <span>📊 {ui.stats[lang]}</span>
-        <span>👤 {ui.profile[lang]}</span>
+
+      {/* Input bar */}
+      <div className="px-2.5 py-2 border-t border-ink-100 bg-white flex items-center gap-1.5">
+        <div className="w-7 h-7 rounded-full bg-steppe-50 text-steppe-600 grid place-items-center text-xs">📷</div>
+        <div className="w-7 h-7 rounded-full bg-steppe-50 text-steppe-600 grid place-items-center text-xs">🎤</div>
+        <div className="flex-1 bg-ink-50 rounded-full px-3 py-1.5 text-[10px] font-semibold text-ink-400">
+          {CHAT_HERO.askPlaceholder[lang]}
+        </div>
+        <div className="w-7 h-7 rounded-full bg-steppe-500 text-white grid place-items-center text-xs">▶</div>
       </div>
     </div>
   )
