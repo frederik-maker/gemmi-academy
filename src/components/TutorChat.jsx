@@ -331,14 +331,22 @@ export default function TutorChat({ open, onClose, context, autoAsk }) {
   // sees "permission denied" or "no speech" instead of a stuck spinner.
   useEffect(() => {
     if (!voice.error) return
+    // Some keys are bare strings; mic_lang_not_installed carries the
+    // requested locale after a colon — extract it for the friendly hint.
+    const [errKey, errArg] = String(voice.error).split(':', 2)
     const msg = {
       mic_permission_denied: { kk: 'Микрофонға рұқсат жоқ', ru: 'Нет доступа к микрофону', en: 'Microphone permission denied' }[lang],
       mic_state_mismatch: { kk: 'Микрофон қатесі — қайта көр', ru: 'Сбой состояния микрофона — попробуй ещё', en: 'Microphone state mismatch — tap mic again' }[lang],
       mic_network_required: { kk: 'Дауыс тану үшін интернет керек', ru: 'Распознавание речи требует интернет', en: 'Speech recognition needs internet (or install Google offline speech for your language)' }[lang],
+      mic_lang_not_installed: {
+        kk: `${errArg || ''} тілі телефоныңда орнатылмаған. Android > Параметрлер > Тілдер > Дауыс енгізу арқылы қос.`,
+        ru: `Распознавание ${errArg || ''} не установлено на телефоне. Android > Настройки > Языки > Голосовой ввод.`,
+        en: `${errArg || ''} speech model isn't installed. Android > Settings > Languages > Voice input → tap "${errArg || ''}".`,
+      }[lang],
       no_speech: { kk: 'Сөз естілмеді — қайта көр', ru: 'Не услышал — попробуй ещё', en: "Didn't catch that — try again" }[lang],
       recognition_failed_to_start: { kk: 'Сөйлеу тану қосылмады', ru: 'Распознавание речи не запустилось', en: "Speech recognition couldn't start" }[lang],
       not_supported: { kk: 'Бұл құрылғы дауыс жазуды қолдамайды', ru: 'Голосовой ввод не поддерживается', en: 'Voice input not supported on this device' }[lang],
-    }[voice.error] || voice.error
+    }[errKey] || voice.error
     setError(msg)
   }, [voice.error, lang])
 

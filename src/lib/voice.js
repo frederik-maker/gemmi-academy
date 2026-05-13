@@ -130,9 +130,29 @@ export function useSpeechRecognition(lang) {
         return
       }
 
+      // Check whether the device's installed speech-recognition language
+      // packs cover what the user picked. Android's SpeechRecognizer
+      // silently falls back to the system default (usually en-US) when
+      // the requested locale isn't installed — that's why "Russian
+      // input transcribed as English" happened. Pre-empt that with a
+      // clear error pointing the user at Settings.
+      const wantLang = pickSpeechLang(lang)
+      try {
+        const supported = await c.SpeechRecognition.getSupportedLanguages?.()
+        const list = (supported?.languages || []).map((s) => String(s).toLowerCase())
+        const want = wantLang.toLowerCase()
+        const wantPrefix = want.split('-')[0]
+        const ok = list.length === 0
+          || list.includes(want)
+          || list.some((l) => l.startsWith(wantPrefix + '-'))
+        if (!ok) {
+          setError(`mic_lang_not_installed:${wantLang}`)
+          return
+        }
+      } catch { /* getSupportedLanguages not available — try anyway */ }
+
       // If a previous session is still running (start never resolved cleanly,
       // or the user tapped twice fast), force-stop it before starting.
-      // Plugin throws "already running" otherwise.
       try { await c.SpeechRecognition.stop() } catch { /* not running, fine */ }
       try { nativeListenerRef.current?.remove?.() } catch {}
       nativeListenerRef.current = null
