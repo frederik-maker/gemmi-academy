@@ -38,7 +38,13 @@ export default function Learn() {
         <Topbar onLangClick={() => setLangOpen(true)} currentLang={lang} />
       )}
       {!isLessonPlayer && !isComplete && <OfflineBanner />}
-      <main className={`max-w-md mx-auto px-4 ${isLessonPlayer || isComplete ? '' : 'pb-24'} pt-4`}>
+      {/* LessonPlayer + LessonComplete manage their own width and own
+          background — wrap-in-a-card looks wrong on the celebration screen
+          (left/right white bars showing the page bg through the gradient).
+          For those routes drop the max-w-md cap entirely. */}
+      <main className={isLessonPlayer || isComplete
+        ? ''
+        : 'max-w-md mx-auto px-4 pb-24 pt-4'}>
         <Routes>
           <Route index element={<Home />} />
           <Route path="subject/:subjectId" element={<SubjectMap />} />

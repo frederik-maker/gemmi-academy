@@ -131,7 +131,7 @@ export default function Profile() {
           icon={<Cpu className="w-5 h-5 text-steppe-600" />}
           label={lang === 'kk' ? 'Офлайн ИИ-ұстазды қос' : lang === 'ru' ? 'Запустить ИИ офлайн' : 'Run Gemmi offline'}
         >
-          <span className="text-[10px] font-extrabold uppercase tracking-wide text-steppe-600">Gemma 3 · LiteRT</span>
+          <span className="text-[10px] font-extrabold uppercase tracking-wide text-steppe-600">Gemma 4 E2B · LiteRT</span>
         </Row>
         <Row
           onClick={() => navigate('/learn/voice-setup')}

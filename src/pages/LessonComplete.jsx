@@ -22,9 +22,15 @@ export default function LessonComplete() {
   const headline = stars === 3 ? t('perfect', lang) : stars === 2 ? t('almost', lang) : t('keepGoing', lang)
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-steppe-500 to-steppe-700 text-white overflow-hidden">
+    <div
+      className="min-h-screen bg-gradient-to-b from-steppe-500 to-steppe-700 text-white overflow-hidden"
+      style={{
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 24px)',
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)',
+      }}
+    >
       <Confetti />
-      <div className="relative max-w-md mx-auto px-5 pt-8 pb-8 min-h-screen flex flex-col">
+      <div className="relative max-w-md mx-auto px-5 min-h-screen flex flex-col">
         <div className="flex justify-center">
           <Mascot size={180} mood="happy" />
         </div>
