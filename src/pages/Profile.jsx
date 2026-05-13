@@ -142,7 +142,7 @@ export default function Profile() {
       </div>
 
       <div className="mt-6 text-center text-[11px] font-bold text-ink-300">
-        Gemmi Academy · v0.1
+        Gemmi Academy · v0.1 · build {typeof __BUILD__ !== 'undefined' ? __BUILD__ : 'dev'}
       </div>
 
 

@@ -192,19 +192,18 @@ export default function LessonPlayer() {
 
   // ── render ──
   return (
-    <div
-      className="min-h-screen bg-white"
-      style={{
-        // Generous fallbacks: even if env() reports 0 because the WebView
-        // didn't propagate the inset, the page still clears the status bar
-        // (notchless ~28px, big-notch up to 54px) and the gesture pill.
-        paddingTop: 'max(env(safe-area-inset-top), 54px)',
-        paddingBottom: 'max(env(safe-area-inset-bottom), 24px)',
-      }}
-    >
-      <div className="max-w-md mx-auto px-4 pt-4 pb-32 min-h-screen flex flex-col">
-        {/* Header: exit + progress + hearts */}
-        <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-white">
+      <div className="max-w-md mx-auto px-4 pb-32 min-h-screen flex flex-col">
+        {/* Header inset: applied directly to the header div instead of a
+            wrapper. Hardcoded 56px floor means we always clear a typical
+            Android status bar even when env() returns 0; the env() bump
+            adds extra room when the inset is actually reported. The 0px
+            fallback inside env() keeps the whole declaration valid on
+            browsers that don't understand env(safe-area-inset-*). */}
+        <div
+          className="flex items-center gap-3"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 56px)' }}
+        >
           <button onClick={() => setExitOpen(true)} className="text-ink-400 hover:text-ink-700">
             <X className="w-7 h-7" strokeWidth={3} />
           </button>
@@ -369,7 +368,7 @@ function FeedbackBar({ phase, lang, onCheck, onNext, onAskGemmi, correctText, wr
   return (
     <div
       className={`fixed inset-x-0 bottom-0 z-20 ${correct ? 'bg-emerald-50' : wrong ? 'bg-rose-50' : 'bg-white'} border-t-2 ${correct ? 'border-leaf-400' : wrong ? 'border-ruby-500' : 'border-ink-100'}`}
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
     >
       <div className="max-w-md mx-auto px-4 py-3">
         {phase === 'answering' && (

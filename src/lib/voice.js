@@ -75,7 +75,12 @@ export function useSpeechRecognition(lang) {
         const Hello = mod.registerPlugin('Hello')
         const res = await Hello.ensureMicPermission()
         if (!res?.granted) {
-          setError('mic_permission_denied')
+          // Surface the Capacitor-side cached state in the error key so
+          // we can see whether the OS reported granted but the cache
+          // didn't update, or vice versa. Distinguishable in the UI.
+          setError(res?.capacitorState === 'GRANTED'
+            ? 'mic_state_mismatch'
+            : 'mic_permission_denied')
           return
         }
       }
@@ -171,32 +176,35 @@ function ensureVoices() {
 // Web Speech kk-KZ either doesn't exist or falls through to ru-RU.
 async function tryPiperSpeak(text, lang) {
   const piper = typeof window !== 'undefined' ? window.PiperTts : null
-  if (!piper) return false
+  if (!piper) return { ok: false, reason: 'no_piper' }
   try {
     const st = await piper.voiceState(lang)
-    // 'bundled' = shipped inside the APK (kk_KZ), 'ready' = user downloaded
-    // it into filesDir. Both mean the engine can speak now.
-    if (st?.state !== 'ready' && st?.state !== 'bundled') return false
+    if (st?.state !== 'ready' && st?.state !== 'bundled') {
+      return { ok: false, reason: `voice_${st?.state || 'missing'}` }
+    }
     await piper.speak({ text, lang })
-    return true
-  } catch {
-    return false
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, reason: e?.message || 'piper_speak_failed' }
   }
 }
 
+// Speak `text` via the best available engine. Resolves when the utterance
+// finishes (or fails). Returns an outcome object so callers can show a
+// useful error in the UI instead of silently doing nothing.
 export async function speak(text, lang) {
-  // Strip any leftover LaTeX delimiters so the engine doesn't read "$x$".
   const clean = String(text).replace(/\$+/g, '').replace(/```[\s\S]*?```/g, '').trim()
-  if (!clean) return
+  if (!clean) return { engine: 'none', reason: 'empty_text' }
 
-  // Stop whatever is already playing on either engine before starting the
-  // next utterance, otherwise a fast double-tap stacks two voices.
-  try { window.PiperTts?.stop() } catch {}
+  try { window.PiperTts?.stop() } catch { /* ok */ }
   if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel()
 
-  if (await tryPiperSpeak(clean, lang)) return
+  const piper = await tryPiperSpeak(clean, lang)
+  if (piper.ok) return { engine: 'piper' }
 
-  if (typeof window === 'undefined' || !window.speechSynthesis) return
+  if (typeof window === 'undefined' || !window.speechSynthesis) {
+    return { engine: 'none', reason: piper.reason || 'no_speech_synthesis' }
+  }
   const voices = await ensureVoices()
   const wanted = LANG_MAP[lang] || LANG_MAP.en
   const voice = wanted.flatMap((tag) => voices.filter((v) => v.lang === tag))[0]
@@ -211,7 +219,18 @@ export async function speak(text, lang) {
   }
   u.rate = 1.0
   u.pitch = 1.05
-  window.speechSynthesis.speak(u)
+
+  // Resolve when the utterance ends so SpeakButton's "playing" state
+  // actually tracks playback, not the time-to-queue.
+  return new Promise((resolve) => {
+    u.onend = () => resolve({ engine: 'webspeech' })
+    u.onerror = (e) => resolve({ engine: 'webspeech', error: e?.error || 'speech_error' })
+    try {
+      window.speechSynthesis.speak(u)
+    } catch (e) {
+      resolve({ engine: 'webspeech', error: e?.message || 'speak_failed' })
+    }
+  })
 }
 
 export function stopSpeaking() {

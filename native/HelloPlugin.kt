@@ -1,6 +1,8 @@
 package co.bussler.gemmi
 
 import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import com.getcapacitor.JSObject
 import com.getcapacitor.PermissionState
 import com.getcapacitor.Plugin
@@ -11,31 +13,32 @@ import com.getcapacitor.annotation.Permission
 import com.getcapacitor.annotation.PermissionCallback
 
 /**
- * Two responsibilities, despite the name:
+ * Two methods:
  *
- *  1. `ping()` — smoke-test the Kotlin↔JS bridge end-to-end. Logged on
- *     boot so we can verify the plugin is alive in adb logcat.
+ *   ping()                — smoke-test that the Kotlin↔JS bridge is alive.
+ *   ensureMicPermission() — synchronously surface the RECORD_AUDIO runtime
+ *                           permission state, requesting it (with OS
+ *                           dialog) if not yet granted. Resolves with the
+ *                           actual ContextCompat.checkSelfPermission
+ *                           result AFTER the dialog dismisses.
  *
- *  2. `ensureMicPermission()` — prompt the user for the RECORD_AUDIO
- *     runtime permission and resolve the JS promise with the actual
- *     answer (granted: true|false). Putting RECORD_AUDIO in the
- *     AndroidManifest is necessary but not sufficient on Android 6+;
- *     getUserMedia() in the WebView fails with NotAllowedError until
- *     the user has tapped Allow. Capacitor's WebChromeClient doesn't
- *     surface that dialog for SpeechRecognition on its own.
- *
- *     We use Capacitor's @Permission + requestPermissionForAlias +
- *     @PermissionCallback framework so the call.resolve() actually
- *     fires AFTER the user has dismissed the OS dialog (rather than
- *     immediately, which would race with the user's tap).
- *
- *  Camera permission is handled by @capacitor/camera's own plugin.
+ * Why check via ContextCompat rather than Capacitor's getPermissionState():
+ * in Capacitor 8 we saw the permission-callback fire with the cached
+ * state still set to DENIED even after the user tapped Allow. Going
+ * through PackageManager.PERMISSION_GRANTED directly is the source of
+ * truth and matches whatever the OS actually decided.
  */
 @CapacitorPlugin(
   name = "Hello",
   permissions = [Permission(strings = [Manifest.permission.RECORD_AUDIO], alias = "mic")],
 )
 class HelloPlugin : Plugin() {
+
+  private fun micGranted(): Boolean {
+    return ContextCompat.checkSelfPermission(
+      context, Manifest.permission.RECORD_AUDIO,
+    ) == PackageManager.PERMISSION_GRANTED
+  }
 
   @PluginMethod
   fun ping(call: PluginCall) {
@@ -48,16 +51,26 @@ class HelloPlugin : Plugin() {
 
   @PluginMethod
   fun ensureMicPermission(call: PluginCall) {
-    if (getPermissionState("mic") == PermissionState.GRANTED) {
+    if (micGranted()) {
       call.resolve(JSObject().put("granted", true))
       return
     }
+    // requestPermissionForAlias saves the call by alias and replays it
+    // into micPermsCallback once the OS dialog dismisses with a result.
+    // The user sees the system "Allow Gemmi Academy to record audio?"
+    // dialog. Their tap on Allow / Deny triggers the callback below.
     requestPermissionForAlias("mic", call, "micPermsCallback")
   }
 
   @PermissionCallback
   fun micPermsCallback(call: PluginCall) {
-    val granted = getPermissionState("mic") == PermissionState.GRANTED
-    call.resolve(JSObject().put("granted", granted))
+    val granted = micGranted()
+    val ret = JSObject().put("granted", granted)
+    if (!granted) {
+      // Surface the Capacitor-side cached state too for debugging, in
+      // case it diverges from ContextCompat's view (it shouldn't).
+      ret.put("capacitorState", getPermissionState("mic").toString())
+    }
+    call.resolve(ret)
   }
 }

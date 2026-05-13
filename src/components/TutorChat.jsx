@@ -519,7 +519,7 @@ export default function TutorChat({ open, onClose, context, autoAsk }) {
                 if (input.trim() || pendingImage) send(input.trim())
               }}
               className={`${pendingImage ? '' : 'border-t border-ink-100'} px-4 pt-3 bg-white flex gap-2 items-center`}
-              style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
+              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
             >
               <input
                 ref={fileInputRef}
@@ -678,26 +678,32 @@ function MessageBubble({ message, lang, onOpenLesson }) {
 // (kk-KZ is bundled in the APK), and falls back to Web Speech otherwise.
 function SpeakButton({ text, lang }) {
   const [playing, setPlaying] = useState(false)
+  const [problem, setProblem] = useState(null)
   const onClick = async () => {
     if (playing) { stopSpeaking(); setPlaying(false); return }
+    setProblem(null)
     setPlaying(true)
-    try { await speak(text, lang) }
-    catch { /* ignore — fallback chain inside speak handles errors */ }
-    finally { setPlaying(false) }
+    const outcome = await speak(text, lang)
+    // outcome shape: { engine: 'piper' | 'webspeech' | 'none', reason?, error? }
+    if (outcome?.engine === 'none' || outcome?.error) {
+      setProblem(outcome?.error || outcome?.reason || 'no_engine')
+    }
+    setPlaying(false)
   }
-  // Always render. ttsSupported is computed at module-load and on native
-  // the Piper window globals aren't ready yet at that moment — guarding
-  // on it hid the button on every APK install. speak() itself handles
-  // the "no engine available" fallback chain (Piper → Web Speech → no-op).
   return (
-    <button onClick={onClick}
-      className="mt-2 inline-flex items-center gap-1.5 text-xs font-extrabold text-steppe-600 hover:text-steppe-700 bg-steppe-50 hover:bg-steppe-100 border border-steppe-200 rounded-full px-2.5 py-1"
-      aria-label="Speak"
-    >
-      {playing
-        ? <><Volume2 className="w-3.5 h-3.5" strokeWidth={2.5} />{{ kk: 'Тоқтату', ru: 'Остановить', en: 'Stop' }[lang]}</>
-        : <><Play className="w-3 h-3" strokeWidth={3} fill="currentColor" />{{ kk: 'Дыбыспен', ru: 'Озвучить', en: 'Speak' }[lang]}</>}
-    </button>
+    <div className="mt-2 flex items-center gap-2 flex-wrap">
+      <button onClick={onClick}
+        className="inline-flex items-center gap-1.5 text-xs font-extrabold text-steppe-600 hover:text-steppe-700 bg-steppe-50 hover:bg-steppe-100 border border-steppe-200 rounded-full px-2.5 py-1"
+        aria-label="Speak"
+      >
+        {playing
+          ? <><Volume2 className="w-3.5 h-3.5" strokeWidth={2.5} />{{ kk: 'Тоқтату', ru: 'Остановить', en: 'Stop' }[lang]}</>
+          : <><Play className="w-3 h-3" strokeWidth={3} fill="currentColor" />{{ kk: 'Дыбыспен', ru: 'Озвучить', en: 'Speak' }[lang]}</>}
+      </button>
+      {problem && (
+        <span className="text-[11px] font-bold text-ruby-600 break-words">tts: {problem}</span>
+      )}
+    </div>
   )
 }
 

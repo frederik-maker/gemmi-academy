@@ -12,7 +12,7 @@ export default function BottomNav() {
   return (
     <nav
       className="fixed bottom-0 inset-x-0 z-30 border-t border-ink-100 bg-white/95 backdrop-blur"
-      style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 24px)' }}
+      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
     >
       <div className="max-w-md mx-auto grid grid-cols-3">
         <NavLink end to="/learn" className={link}>
