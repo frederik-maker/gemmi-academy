@@ -25,17 +25,36 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </BrowserRouter>
 )
 
-// Register the service worker in production builds only so dev-time edits
-// don't get sticky-cached. In the Capacitor APK this still runs because the
-// bundle is produced with `vite build`.
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
+// Service worker handling.
+//
+// On the Capacitor APK we explicitly DON'T register a service worker.
+// Reason: the WebView's "origin" is https://localhost and storage persists
+// across app updates. A SW registered by an older APK keeps serving its
+// cached /assets/* bundles to every future install of the app, so users
+// see code from two builds ago even though the new APK shipped fine
+// (this is exactly the symptom that had the user reporting "progress
+// bar still juts in" and "no speak button" after three rebuilds — they
+// were literally running the prior APK's bundled JS).
+//
+// On every entry to the app, we also actively unregister any pre-existing
+// SW and nuke all caches when running natively. That cleans up the SW
+// installed by past APK versions on the same device.
+const isNative = (() => {
+  try { return !!window.Capacitor?.isNativePlatform?.() } catch { return false }
+})()
+if ('serviceWorker' in navigator && isNative) {
+  navigator.serviceWorker.getRegistrations()
+    .then((regs) => Promise.all(regs.map((r) => r.unregister())))
+    .catch(() => {})
+  if (typeof caches !== 'undefined') {
+    caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))).catch(() => {})
+  }
+} else if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js', { scope: '/' })
       .then((reg) => {
         reg.update().catch(() => {})
-        // When a new SW takes over mid-session, force a reload so the user
-        // never sees half-old / half-new bundles.
         let refreshing = false
         navigator.serviceWorker.addEventListener('controllerchange', () => {
           if (refreshing) return

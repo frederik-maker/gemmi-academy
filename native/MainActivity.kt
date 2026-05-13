@@ -35,12 +35,29 @@ class MainActivity : BridgeActivity() {
     registerPlugin(PiperTtsPlugin::class.java)
     registerPlugin(GemmiTutorPlugin::class.java)
     super.onCreate(savedInstanceState)
+
+    // Edge-to-edge + dark icons. Belt-and-suspenders with the StatusBar
+    // plugin call in nativeBoot.js — between the two paths the system
+    // clock stays visible against our white topbar.
     WindowCompat.setDecorFitsSystemWindows(window, false)
     window.statusBarColor = Color.TRANSPARENT
     window.navigationBarColor = Color.TRANSPARENT
     WindowInsetsControllerCompat(window, window.decorView).apply {
       isAppearanceLightStatusBars = true
       isAppearanceLightNavigationBars = true
+    }
+
+    // After APK updates, the WebView keeps any service worker registration
+    // and cached assets from the prior version of the app — pinned to
+    // https://localhost which Capacitor uses for the bundled webDir.
+    // Result: users sit on stale JS forever ("progress bar still juts in,
+    // mic still says denied, speak button still missing" even though every
+    // new APK shipped the fix). Wipe the WebView's stored data once the
+    // bridge is up so the next reload pulls the fresh bundle from assets.
+    bridge?.webView?.post {
+      try {
+        bridge?.webView?.clearCache(true)
+      } catch (_: Exception) { /* ignore */ }
     }
   }
 }

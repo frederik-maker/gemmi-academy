@@ -195,12 +195,11 @@ export default function LessonPlayer() {
     <div
       className="min-h-screen bg-white"
       style={{
-        // max() so a WebView that doesn't report insets (older Capacitor,
-        // emulator without bezels) still leaves room for the status bar
-        // and the gesture nav. 32px tops the typical 24-28px status bar
-        // on a notchless phone; 16px covers the gesture pill.
-        paddingTop: 'max(env(safe-area-inset-top), 32px)',
-        paddingBottom: 'max(env(safe-area-inset-bottom), 16px)',
+        // Generous fallbacks: even if env() reports 0 because the WebView
+        // didn't propagate the inset, the page still clears the status bar
+        // (notchless ~28px, big-notch up to 54px) and the gesture pill.
+        paddingTop: 'max(env(safe-area-inset-top), 54px)',
+        paddingBottom: 'max(env(safe-area-inset-bottom), 24px)',
       }}
     >
       <div className="max-w-md mx-auto px-4 pt-4 pb-32 min-h-screen flex flex-col">

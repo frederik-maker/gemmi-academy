@@ -691,7 +691,7 @@ function SpeakButton({ text, lang }) {
   // the "no engine available" fallback chain (Piper → Web Speech → no-op).
   return (
     <button onClick={onClick}
-      className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-extrabold text-ink-400 hover:text-steppe-600"
+      className="mt-2 inline-flex items-center gap-1.5 text-xs font-extrabold text-steppe-600 hover:text-steppe-700 bg-steppe-50 hover:bg-steppe-100 border border-steppe-200 rounded-full px-2.5 py-1"
       aria-label="Speak"
     >
       {playing

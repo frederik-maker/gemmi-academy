@@ -6,8 +6,11 @@
 //   3. /api/tutor is NEVER cached — it always goes to network (or local model).
 //   4. New deploys swap in cleanly without trapping the user on a stale shell.
 
-const SHELL_CACHE = 'gemmi-shell-v6'
-const RUNTIME_CACHE = 'gemmi-runtime-v6'
+// Bumping these invalidates all previously-cached bundles. Necessary
+// after the Capacitor APK fix that stops registering a SW on native —
+// existing users have an old v6 SW that's still pinning their assets.
+const SHELL_CACHE = 'gemmi-shell-v7'
+const RUNTIME_CACHE = 'gemmi-runtime-v7'
 
 // Bare-minimum precache. Vite-hashed JS / CSS are picked up at runtime by
 // match-on-fetch (cache-first for `/assets/*`). We precache enough that an

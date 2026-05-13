@@ -12,7 +12,7 @@ export default function Topbar({ onLangClick, currentLang }) {
   }, [tickHearts])
 
   return (
-    <div className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-ink-100" style={{ paddingTop: 'max(env(safe-area-inset-top), 32px)' }}>
+    <div className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-ink-100" style={{ paddingTop: 'max(env(safe-area-inset-top), 54px)' }}>
       <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
         <button
           onClick={onLangClick}
