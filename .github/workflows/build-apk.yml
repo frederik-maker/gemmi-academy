@@ -64,7 +64,15 @@ jobs:
       # Kotlin-enable patch on android/build.gradle.
 
       - name: Generate launcher icon + splash from assets/
-        run: npx @capacitor/assets generate --android --assetPath assets
+        # No fullscreen splash PNGs in assets/ — instead let @capacitor/assets
+        # build the Android-12+ style splash from the launcher icon plus a
+        # color background. Saves ~2 MB vs shipping six-density splash images.
+        run: |
+          npx @capacitor/assets generate --android --assetPath assets \
+            --iconBackgroundColor '#1186f5' \
+            --iconBackgroundColorDark '#0b1530' \
+            --splashBackgroundColor '#1186f5' \
+            --splashBackgroundColorDark '#0b1530'
 
       - name: Sync web bundle into Android project
         run: npx cap sync android
