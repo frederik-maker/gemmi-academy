@@ -26,9 +26,9 @@ const STR = {
     en: 'This device doesn\'t have enough RAM. Sticking to cloud mode.',
   },
   webOnly: {
-    kk: 'Бұл функция тек Android қосымшасында жұмыс істейді.',
-    ru: 'Эта функция доступна только в Android-приложении.',
-    en: 'On-device AI only works in the Android app build, not in the browser preview.',
+    kk: 'Офлайн ИИ-ұстаз жақын арада қосылады. Әзірге ұстаз бұлт арқылы жұмыс істейді.',
+    ru: 'Офлайн ИИ-наставник скоро. Пока наставник работает через облако.',
+    en: 'On-device AI is in the final integration step. The tutor still works via the cloud in the meantime.',
   },
   ramDetected: { kk: 'Құрылғы жады', ru: 'Оперативка устройства', en: 'Device RAM' },
   variant: { kk: 'Модель нұсқасы', ru: 'Вариант модели', en: 'Model variant' },
@@ -57,7 +57,18 @@ export default function ModelSetup() {
         const c = await window.GemmiTutor.deviceCaps()
         if (alive) setCaps(c)
       } catch (e) {
-        if (alive) setError(e?.message || 'caps_failed')
+        // The current APK build doesn't compile the native LiteRT plugin
+        // (Kotlin support not yet enabled in Capacitor's scaffold), so
+        // calling deviceCaps() throws "GemmiTutor plugin is not
+        // implemented on android". Detect that specifically and treat
+        // the page as web-mode so we show the friendly "coming soon"
+        // banner instead of a scary stack-trace-style error string.
+        const msg = (e?.message || 'caps_failed').toLowerCase()
+        if (msg.includes('not implemented')) {
+          if (alive) setNative(false)
+        } else if (alive) {
+          setError(e?.message || 'caps_failed')
+        }
       }
     })()
     return () => { alive = false }

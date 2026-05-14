@@ -54,12 +54,14 @@ jobs:
       - name: Add Android platform (generates ./android scaffold)
         run: npx cap add android
 
-      - name: Splice the on-device LiteRT plugin into the Android project
-        # Copies native/*.kt into android/app/src/main/java/co/bussler/gemmi,
-        # registers GemmiTutorPlugin in MainActivity, patches build.gradle
-        # with MediaPipe deps, and drops model.config.json into assets so
-        # the WebView side of the plugin can read it at runtime.
-        run: bash scripts/install-native-tutor.sh
+      # NOTE: the native LiteRT plugin (Kotlin sources in native/) is NOT
+      # spliced into the APK build right now. Capacitor's `cap add android`
+      # scaffold is Java-only — enabling Kotlin requires patching two gradle
+      # files and a buildscript classpath, which is fragile across CLI
+      # versions. The on-device path is shipped as scaffold + design; the
+      # APK itself runs the web app via the cloud tutor. To re-enable the
+      # native compile, restore the `install-native-tutor.sh` step plus a
+      # Kotlin-enable patch on android/build.gradle.
 
       - name: Generate launcher icon + splash from assets/
         run: npx @capacitor/assets generate --android --assetPath assets
@@ -67,20 +69,9 @@ jobs:
       - name: Sync web bundle into Android project
         run: npx cap sync android
 
-      - name: Dump app/build.gradle for debugging (parse error happened here)
-        run: |
-          echo "=== android/app/build.gradle ==="
-          cat -n android/app/build.gradle
-          echo ""
-          echo "=== android/app/gemmi-tutor.gradle ==="
-          cat -n android/app/gemmi-tutor.gradle || echo "(not present)"
-          echo ""
-          echo "=== android/app/capacitor.build.gradle ==="
-          cat -n android/app/capacitor.build.gradle || echo "(not present)"
-
       - name: Build debug APK with Gradle
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon --warning-mode=summary --stacktrace
+        run: ./gradlew assembleDebug --no-daemon --warning-mode=summary
 
       - name: Rename APK
         run: |
