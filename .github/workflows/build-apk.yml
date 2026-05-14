@@ -67,11 +67,20 @@ jobs:
       - name: Sync web bundle into Android project
         run: npx cap sync android
 
+      - name: Dump app/build.gradle for debugging (parse error happened here)
+        run: |
+          echo "=== android/app/build.gradle ==="
+          cat -n android/app/build.gradle
+          echo ""
+          echo "=== android/app/gemmi-tutor.gradle ==="
+          cat -n android/app/gemmi-tutor.gradle || echo "(not present)"
+          echo ""
+          echo "=== android/app/capacitor.build.gradle ==="
+          cat -n android/app/capacitor.build.gradle || echo "(not present)"
+
       - name: Build debug APK with Gradle
         working-directory: android
-        # --warning-mode=summary keeps the log readable while still
-        # surfacing Kotlin compile errors loudly.
-        run: ./gradlew assembleDebug --no-daemon --warning-mode=summary
+        run: ./gradlew assembleDebug --no-daemon --warning-mode=summary --stacktrace
 
       - name: Rename APK
         run: |
