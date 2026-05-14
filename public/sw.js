@@ -6,8 +6,8 @@
 //   3. /api/tutor is NEVER cached — it always goes to network (or local model).
 //   4. New deploys swap in cleanly without trapping the user on a stale shell.
 
-const SHELL_CACHE = 'gemmi-shell-v3'
-const RUNTIME_CACHE = 'gemmi-runtime-v3'
+const SHELL_CACHE = 'gemmi-shell-v5'
+const RUNTIME_CACHE = 'gemmi-runtime-v5'
 
 // Bare-minimum precache — Vite-hashed assets are picked up at runtime by
 // match-on-fetch instead. We just need enough to render the root HTML offline.

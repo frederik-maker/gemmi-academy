@@ -342,6 +342,34 @@ export default function TutorChat({ open, onClose, context, autoAsk }) {
                 </div>
               )}
 
+              {/* On Android, until the user has run through ModelSetup, surface
+                  a nudge so they know they're on cloud and can move to the
+                  on-device Gemma for free. Hidden on web (no GemmiTutor). */}
+              {typeof window !== 'undefined' && window.GemmiTutor &&
+                localStorage.getItem('gemmi-offline-model-ready') !== 'true' && (
+                <button
+                  onClick={() => { onClose(); setTimeout(() => navigate('/learn/model-setup'), 50) }}
+                  className="w-full text-left rounded-2xl bg-gradient-to-br from-steppe-50 to-white border-2 border-steppe-200 px-3 py-2.5 flex items-center gap-2.5 hover:border-steppe-400 transition-colors relative"
+                >
+                  <span className="grid place-items-center w-8 h-8 rounded-xl bg-steppe-100 text-steppe-700 flex-shrink-0">
+                    <Cpu className="w-4 h-4" strokeWidth={2.5} />
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[11px] font-extrabold uppercase tracking-wide text-steppe-700">
+                      {{ kk: 'Бұлтта жұмыс істеудеміз', ru: 'Сейчас на облаке', en: 'Running on cloud' }[lang]}
+                    </span>
+                    <span className="block text-xs font-bold text-ink-700 leading-tight">
+                      {{
+                        kk: 'Офлайн Gemma 4-ті қос — желі керек емес.',
+                        ru: 'Включи офлайн-Gemma 4 — без интернета.',
+                        en: 'Install offline Gemma 4 to skip the network.',
+                      }[lang]}
+                    </span>
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-steppe-500 flex-shrink-0" strokeWidth={3} />
+                </button>
+              )}
+
               {messages.length === 0 && !streaming && (
                 <EmptyState lang={lang} grade={grade} onSuggest={send} />
               )}

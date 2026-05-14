@@ -100,7 +100,15 @@ export const nativeProvider = {
   name: 'Gemma (on device)',
   needsNetwork: false,
   async available() {
-    return typeof window !== 'undefined' && typeof window.GemmiTutor?.generate === 'function'
+    if (typeof window === 'undefined') return false
+    if (typeof window.GemmiTutor?.generate !== 'function') return false
+    // ModelSetup.jsx sets this flag after a verified download completes.
+    // Without it we don't claim native is "available" — otherwise the first
+    // chat message would block on Plugin.ensureModel() and trigger a 2 GB
+    // download in the background while the kid waits, which is hostile UX.
+    try {
+      return localStorage.getItem('gemmi-offline-model-ready') === 'true'
+    } catch { return false }
   },
   async *streamReply({ messages, studentState, signal }) {
     const tutor = window.GemmiTutor

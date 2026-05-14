@@ -70,6 +70,10 @@ export default function ModelSetup() {
       await window.GemmiTutor.download({
         onProgress: ({ downloaded, total }) => setProgress({ downloaded, total }),
       })
+      // Flag the model as ready so tutorProviders.nativeProvider.available()
+      // starts returning true on the next chat open, routing inference to the
+      // local Gemma 4 instead of Gemini.
+      try { localStorage.setItem('gemmi-offline-model-ready', 'true') } catch { /* private mode */ }
       setPhase('done')
     } catch (e) {
       setError(e?.message || 'download_failed')

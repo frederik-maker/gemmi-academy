@@ -53,6 +53,31 @@ app.use((req, res, next) => {
   res.sendFile(path.join(DIST, 'index.html'))
 })
 
+// Last-line-of-defense Express error handler. Without this a thrown error in
+// any middleware propagates to Node's default handler and tears the process
+// down. Railway's restart policy would bring it back in a few seconds, but
+// returning users see a 502 from the Cloudflare Worker during the cold-start
+// window. Catching here keeps the process alive and returns a clean 500.
+app.use((err, _req, res, _next) => {
+  console.error('[express]', err?.stack || err?.message || err)
+  if (res.headersSent) {
+    try { res.end() } catch { /* connection probably torn down */ }
+    return
+  }
+  res.status(500).json({ error: 'server_error' })
+})
+
+// Same idea at the Node level: async work outside of an Express request (a
+// stray rejected promise, an event-loop callback) can crash the process.
+// We log and keep running. If something truly wedges the loop, Railway's
+// health check will spot it and restart.
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err?.stack || err)
+})
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason)
+})
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[server] listening on :${PORT}`)
   console.log(`[server] serving ${DIST}`)
