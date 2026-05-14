@@ -5,8 +5,8 @@
 #   - npm run android:init has been run once (creates ./android)
 #   - native/model.config.json has been edited with your real model URLs + SHAs
 #
-# Idempotent: re-running just overwrites the Kotlin files and re-patches the
-# Gradle file in place. Safe to run after every fine-tune iteration.
+# Idempotent: re-running just overwrites the Kotlin files and re-applies the
+# Gradle splice. Safe to run after every fine-tune iteration.
 
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -15,6 +15,7 @@ ANDROID="$ROOT/android"
 PKG_PATH="$ANDROID/app/src/main/java/co/bussler/gemmi"
 ASSETS="$ANDROID/app/src/main/assets"
 GRADLE="$ANDROID/app/build.gradle"
+GEMMI_GRADLE="$ANDROID/app/gemmi-tutor.gradle"
 MAIN_ACTIVITY_DIR="$ANDROID/app/src/main/java"
 
 step() { printf "\n\033[1;36m▸\033[0m %s\n" "$*"; }
@@ -24,10 +25,8 @@ fail() { printf "\033[1;31m✗\033[0m %s\n" "$*" >&2; exit 1; }
 [[ -d "$ANDROID" ]] || fail "android/ not found. Run: npm run android:init"
 [[ -f "$NATIVE/model.config.json" ]] || fail "missing native/model.config.json"
 
-# Refuse to install if model.config.json still has placeholders — that would
-# guarantee a runtime download failure.
 if grep -q "REPLACE-ME\|REPLACE_WITH_SHA256" "$NATIVE/model.config.json"; then
-  warn "model.config.json still has placeholder values. Continuing anyway, but the model download will fail until you fill them in."
+  warn "model.config.json still has placeholders. The model download will fail until you fill them in."
 fi
 
 step "Copying Kotlin sources to $PKG_PATH"
@@ -41,40 +40,28 @@ step "Copying model.config.json to Android assets"
 mkdir -p "$ASSETS"
 cp "$NATIVE/model.config.json" "$ASSETS/model.config.json"
 
-step "Patching $GRADLE with LiteRT-LM dependencies"
-if grep -q "gemmi-tutor-deps" "$GRADLE"; then
-  echo "    ✓ dependencies already present"
+step "Splicing native/gemmi-tutor.gradle into $GRADLE"
+# Robust approach: drop our extras into a separate gradle file and append a
+# single `apply from:` line to the existing build.gradle. No regex hacking
+# of Capacitor's generated dependencies block, which is fragile across CLI
+# versions and broke last time we tried it.
+cp "$NATIVE/gemmi-tutor.gradle" "$GEMMI_GRADLE"
+echo "    ✓ wrote $GEMMI_GRADLE"
+if grep -q "apply from: 'gemmi-tutor.gradle'" "$GRADLE" || grep -q 'apply from: "gemmi-tutor.gradle"' "$GRADLE"; then
+  echo "    ✓ apply-from line already present"
 else
-  python3 - "$GRADLE" "$NATIVE/build.gradle.snippet" <<'PY'
-import sys, re, pathlib
-gradle_path, snippet_path = sys.argv[1], sys.argv[2]
-gradle = pathlib.Path(gradle_path).read_text()
-snippet_full = pathlib.Path(snippet_path).read_text()
-# Pull the dependencies { ... } block out of the snippet so we don't write
-# a `dependencies` block twice.
-m = re.search(r"dependencies\s*\{([^}]*)\}", snippet_full, re.DOTALL)
-inner = m.group(1).strip() if m else ""
-marker = "// MARKER: gemmi-tutor-deps"
-# Inject the marker + dep lines into the LAST `dependencies { ... }` block.
-def inject(match):
-    return match.group(0)[:-1] + "\n    " + marker + "\n    " + inner.replace("\n", "\n    ") + "\n}"
-new = re.sub(r"dependencies\s*\{[^}]*\}", inject, gradle, count=0)
-# Pick the last match — Gradle DSL may have multiple dependency blocks
-# (project-level vs module). Easiest: target only matches *after* `android {`.
-pathlib.Path(gradle_path).write_text(new)
-PY
-  echo "    ✓ injected LiteRT-LM + coroutines deps"
+  printf '\n// MARKER: gemmi-tutor-deps\napply from: "gemmi-tutor.gradle"\n' >> "$GRADLE"
+  echo "    ✓ appended apply-from line"
 fi
 
 step "Registering plugin in MainActivity"
-MAIN=$(find "$MAIN_ACTIVITY_DIR" -name MainActivity.java -o -name MainActivity.kt | head -1 || true)
+MAIN=$(find "$MAIN_ACTIVITY_DIR" -name MainActivity.java -o -name MainActivity.kt 2>/dev/null | head -1 || true)
 [[ -n "$MAIN" ]] || fail "Could not find MainActivity in $MAIN_ACTIVITY_DIR"
 if grep -q "GemmiTutorPlugin" "$MAIN"; then
   echo "    ✓ already registered"
 else
   case "$MAIN" in
     *.java)
-      # Add import + registerPlugin() before super.onCreate (Java syntax)
       python3 - "$MAIN" <<'PY'
 import sys, re, pathlib
 p = pathlib.Path(sys.argv[1])
@@ -88,6 +75,7 @@ src = re.sub(
 )
 p.write_text(src)
 PY
+      echo "    ✓ patched $MAIN (Java)"
       ;;
     *.kt)
       python3 - "$MAIN" <<'PY'
@@ -103,14 +91,9 @@ src = re.sub(
 )
 p.write_text(src)
 PY
+      echo "    ✓ patched $MAIN (Kotlin)"
       ;;
   esac
-  echo "    ✓ patched $MAIN"
 fi
 
-step "Done. Next:"
-cat <<EOF
-    1. (only if you haven't) edit native/model.config.json with your real URLs + SHAs
-    2. cd $ROOT && npm run android:apk
-    3. adb install android/app/build/outputs/apk/debug/app-debug.apk
-EOF
+step "Done."
