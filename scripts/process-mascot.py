@@ -216,24 +216,13 @@ def main() -> int:
         combined.save(assets_dir / "icon-only.png", optimize=True)
         print("  + assets/icon-only.png (legacy fallback)")
 
-        # Splash: 2732×2732 solid blue with bird centred at ~40% size.
-        SPLASH_SIDE = 2732
-        splash = Image.new("RGBA", (SPLASH_SIDE, SPLASH_SIDE), (0x11, 0x86, 0xf5, 0xff))
-        splash_bird = final_img.copy()
-        splash_target = int(SPLASH_SIDE * 0.40)
-        splash_bird.thumbnail((splash_target, splash_target), Image.LANCZOS)
-        sx = (SPLASH_SIDE - splash_bird.width) // 2
-        sy = (SPLASH_SIDE - splash_bird.height) // 2
-        splash.paste(splash_bird, (sx, sy), splash_bird)
-        splash.save(assets_dir / "splash.png", optimize=True)
-        print("  + assets/splash.png (2732×2732 launch screen)")
-
-        # Dark splash: same composition on a near-black navy background so
-        # dark-mode devices don't flash bright blue at launch.
-        splash_dark = Image.new("RGBA", (SPLASH_SIDE, SPLASH_SIDE), (0x0b, 0x15, 0x30, 0xff))
-        splash_dark.paste(splash_bird, (sx, sy), splash_bird)
-        splash_dark.save(assets_dir / "splash-dark.png", optimize=True)
-        print("  + assets/splash-dark.png (dark-mode launch screen)")
+        # Note: NOT generating splash.png / splash-dark.png. @capacitor/assets
+        # fans those out into ~24 PNGs (portrait + landscape × six density
+        # buckets × light + dark), adding ~2 MB to the APK for what ends up
+        # being a flat color screen with the launcher icon centred on
+        # Android 12+. The CI step passes --splashBackgroundColor +
+        # --splashBackgroundColorDark to @capacitor/assets so the splash is
+        # generated from the icon plus a color, no fullscreen PNGs needed.
     else:
         Image.fromarray(out).save(OUT, optimize=True)
         print(f"✓ Wrote {OUT} (no opaque subject found — saved unchanged)")
