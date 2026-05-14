@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowRight, Globe, Trophy, Flame, Heart, Star, Smartphone, Check, ChevronRight, Sparkles, Award, HelpCircle, X } from 'lucide-react'
+import { ArrowRight, Globe, Trophy, Flame, Heart, Star, Smartphone, Check, ChevronRight, Sparkles, Award, HelpCircle, X, Github, Brain, GraduationCap, Users } from 'lucide-react'
 import Mascot from '../components/Mascot.jsx'
 import LangSwitcher from '../components/LangSwitcher.jsx'
 import { subjects } from '../data/index.js'
@@ -15,6 +15,7 @@ const APK_URL = 'https://github.com/frederik-maker/gemmi-academy/releases/downlo
 
 const DOWNLOAD_LABEL = { kk: 'APK жүктеу', ru: 'Скачать APK', en: 'Download APK' }
 const DEMO_LABEL = { kk: 'Демо көру', ru: 'Демо онлайн', en: 'Demo online' }
+const GITHUB_URL = 'https://github.com/frederik-maker/gemmi-academy'
 
 // Best-effort first-visit language pick. Order of precedence:
 //   1. URL param (?lang=kk|ru|en) — wins, useful for share links.
@@ -86,10 +87,10 @@ function LangPicker({ lang, setLang }) {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold text-ink-700 hover:bg-ink-50 border border-ink-200"
+        className="inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-md text-xs font-bold text-ink-700 hover:bg-ink-50 border border-ink-200"
       >
         <span className="text-base leading-none">{current.flag}</span>
-        <span>{label(current)}</span>
+        <span className="hidden sm:inline">{label(current)}</span>
         <ChevronRight className={`w-3 h-3 transition-transform ${open ? 'rotate-90' : ''}`} strokeWidth={3} />
       </button>
       {open && (
@@ -223,14 +224,14 @@ const STR = {
     en: 'A real game loop tuned for 6 to 14 year olds. Daily goals, a streak that builds across days, hearts that teach patience.',
   },
   feat3Title: {
-    kk: 'On-device ИИ',
-    ru: 'On-device ИИ',
-    en: 'AI tutor on your phone',
+    kk: 'Көріп, естіп, есте сақтайтын ИИ',
+    ru: 'ИИ, который видит, слышит и помнит',
+    en: 'AI tutor that sees, hears, and remembers',
   },
   feat3Body: {
-    kk: 'Gemma 4 E2B үлгісі телефонда жұмыс істейді. Желі болмаса да ұстаз қол жетімді. Сабақ ішінде «Джеммиден сұра» батырмасы әр сұрақта пайда болады.',
-    ru: 'Модель Gemma 4 E2B работает прямо на телефоне. Наставник доступен даже без интернета. Кнопка «Спросить Джемми» появляется на каждом вопросе урока.',
-    en: 'A Gemma 4 E2B model runs on the phone itself. The tutor is available even without internet. An "Ask Gemmi" button shows up on every lesson question.',
+    kk: 'Gemma 4 телефонның өзінде жұмыс істейді. Қолжазба математикаға камераны бағытта, дауыспен сұра, әрі қарай талқыла. Өткен аптада нені шатастырғаныңды есте сақтайды.',
+    ru: 'Gemma 4 работает прямо на телефоне. Наведи камеру на рукописную математику, говори голосом, задавай уточняющие вопросы. Наставник помнит, где ты ошибся на прошлой неделе.',
+    en: 'Gemma 4 runs on the phone itself. Point the camera at handwritten math, talk to it, ask follow-ups. It remembers what you got wrong last week.',
   },
   feat4Title: {
     kk: 'Қазақстанға арналған бағдарлама',
@@ -279,6 +280,46 @@ const STR = {
     en: 'Free. No ads. From age 5 to adult. Works offline.',
   },
   footerWeb: { kk: 'Веб-нұсқа', ru: 'Веб-версия', en: 'Web app' },
+
+  // Educators section
+  eduPill: { kk: 'Ата-ана мен мұғалімдерге', ru: 'Родителям и учителям', en: 'For parents & teachers' },
+  eduTitle: {
+    kk: 'Үлкендер де қосыла алады.',
+    ru: 'Взрослые тоже могут участвовать.',
+    en: 'Built so adults can help.',
+  },
+  eduBody: {
+    kk: 'Gemmi отбасылық телефонда да, сынып планшетінде де бірдей жұмыс істейді. Әр баланың қателер журналы оларды нелер қинайтынын көрсетеді, ұстаздан баланың прогресі туралы тікелей сұрауға болады, ал on-device режим API ақысын да, деректер жоғалуын да жояды.',
+    ru: 'Gemmi одинаково работает и на общем семейном телефоне, и на школьном планшете. Журнал ошибок показывает, где каждый ребёнок буксует, у наставника можно напрямую спросить о прогрессе ребёнка, а on-device режим убирает и расходы на API, и риски с данными.',
+    en: 'Gemmi works the same on a shared family phone or a classroom tablet. The struggles log shows what each kid keeps getting wrong, you can ask the tutor directly about a student\'s progress, and the on-device path means no API costs and no data leaving the device.',
+  },
+  eduPoint1Title: { kk: 'Шынайы көріну', ru: 'Реальная видимость', en: 'Real visibility' },
+  eduPoint1Body: {
+    kk: 'Әр оқушының қателер журналы қандай ұғымдар әлі бекімегенін көрсетеді.',
+    ru: 'Журнал ошибок каждого ученика показывает, какие темы ещё не закрепились.',
+    en: 'A per-student struggles log shows exactly which concepts haven\'t stuck yet.',
+  },
+  eduPoint2Title: { kk: 'Шексіз тегін', ru: 'Бесплатно навсегда', en: 'Free at any scale' },
+  eduPoint2Body: {
+    kk: 'On-device Gemma 4: API ақысы жоқ, кіру шегі жоқ, барлық сыныпта тегін жұмыс істейді.',
+    ru: 'On-device Gemma 4: ни счёта за API, ни лимитов. Работает у всего класса бесплатно.',
+    en: 'On-device Gemma 4 means no API bill, no per-seat cap, no usage limits for a whole classroom.',
+  },
+  eduPoint3Title: { kk: 'Деректер құрылғыда', ru: 'Данные у тебя', en: 'Data stays local' },
+  eduPoint3Body: {
+    kk: 'Балалардың сұрақтары да, прогресі де серверге жіберілмейді.',
+    ru: 'Вопросы детей и их прогресс не уходят на сервер.',
+    en: 'Kids\' questions and progress never leave the device.',
+  },
+
+  // Open-source banner
+  osTitle: { kk: 'Барлығы ашық.', ru: 'Всё открыто.', en: 'Everything is open.' },
+  osBody: {
+    kk: 'Сабақтар, ұстаздың логикасы, on-device LiteRT қосылымы, бүкіл оқу бағдарламасы — бәрі GitHub-та. Форкта, типографиялық қателерді түзет, өз өңіріңе сабақ қос.',
+    ru: 'Уроки, логика наставника, сборка on-device LiteRT, вся учебная программа — всё на GitHub. Форкай, исправляй опечатки, добавляй уроки для своего региона.',
+    en: 'The lessons, the tutor logic, the on-device LiteRT plumbing, the whole curriculum, all on GitHub. Fork it, fix typos, add lessons for your region.',
+  },
+  osCta: { kk: 'GitHub-та көру', ru: 'Открыть на GitHub', en: 'View on GitHub' },
 }
 
 export default function Landing() {
@@ -317,9 +358,11 @@ export default function Landing() {
       <Hero lang={lang} />
       <SubjectsStrip lang={lang} manifestExtra={perSubject} />
       <Features lang={lang} />
+      <Educators lang={lang} />
       <Trilingual lang={lang} />
       <Numbers lang={lang} totalUnits={totalUnits} totalLessons={totalLessons} totalQuestions={totalQuestions} />
       <Download lang={lang} />
+      <OpenSource lang={lang} />
       <Footer lang={lang} />
     </div>
   )
@@ -339,7 +382,9 @@ function TopNav({ lang, setLang }) {
         </Link>
         <div className="flex items-center gap-2 sm:gap-3">
           <LangPicker lang={lang} setLang={setLang} />
-          <Link to="/learn" className="btn-success text-xs px-3 sm:px-4 py-2">
+          {/* Hide the navbar demo CTA on mobile — the hero has the same
+              button right below and the navbar one was line-wrapping. */}
+          <Link to="/learn" className="hidden sm:inline-flex btn-success text-xs px-4 py-2 whitespace-nowrap">
             {DEMO_LABEL[lang]} <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
@@ -597,6 +642,68 @@ function Features({ lang }) {
   )
 }
 
+function Educators({ lang }) {
+  const points = [
+    { icon: <Brain className="w-5 h-5" />, title: STR.eduPoint1Title[lang], body: STR.eduPoint1Body[lang] },
+    { icon: <Users className="w-5 h-5" />, title: STR.eduPoint2Title[lang], body: STR.eduPoint2Body[lang] },
+    { icon: <GraduationCap className="w-5 h-5" />, title: STR.eduPoint3Title[lang], body: STR.eduPoint3Body[lang] },
+  ]
+  return (
+    <section className="max-w-6xl mx-auto px-5 py-16">
+      <div className="rounded-3xl bg-gradient-to-br from-ink-900 via-ink-900 to-steppe-900 text-white px-6 py-10 sm:px-12 sm:py-14 relative overflow-hidden">
+        <GemPattern opacity={0.08} />
+        <div className="relative max-w-3xl">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/20 px-3 py-1 text-xs font-extrabold">
+            <GraduationCap className="w-3.5 h-3.5" /> {STR.eduPill[lang]}
+          </div>
+          <h2 className="mt-4 text-3xl sm:text-4xl font-extrabold tracking-tight">{STR.eduTitle[lang]}</h2>
+          <p className="mt-3 text-base opacity-90 font-semibold leading-relaxed max-w-2xl">{STR.eduBody[lang]}</p>
+        </div>
+        <div className="relative mt-8 grid sm:grid-cols-3 gap-4">
+          {points.map((p, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }} transition={{ delay: i * 0.07 }}
+              className="rounded-2xl bg-white/5 border border-white/10 p-4"
+            >
+              <div className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-sun-300/20 text-sun-300">{p.icon}</div>
+              <div className="mt-3 font-extrabold">{p.title}</div>
+              <div className="mt-1 text-sm opacity-80 font-semibold leading-relaxed">{p.body}</div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function OpenSource({ lang }) {
+  return (
+    <section className="max-w-6xl mx-auto px-5 pb-16">
+      <a
+        href={GITHUB_URL}
+        target="_blank"
+        rel="noreferrer"
+        className="block rounded-3xl border-2 border-ink-100 bg-white hover:border-ink-300 transition-colors p-6 sm:p-8"
+      >
+        <div className="flex items-start sm:items-center gap-4 flex-col sm:flex-row">
+          <div className="w-12 h-12 rounded-2xl bg-ink-900 text-white grid place-items-center flex-shrink-0">
+            <Github className="w-6 h-6" strokeWidth={2} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-xl sm:text-2xl font-extrabold tracking-tight">{STR.osTitle[lang]}</h3>
+            <p className="mt-1 text-sm font-semibold text-ink-500 leading-relaxed">{STR.osBody[lang]}</p>
+          </div>
+          <span className="inline-flex items-center gap-1 text-sm font-extrabold text-ink-900 whitespace-nowrap flex-shrink-0">
+            {STR.osCta[lang]} <ArrowRight className="w-4 h-4" />
+          </span>
+        </div>
+      </a>
+    </section>
+  )
+}
+
 function Trilingual({ lang }) {
   return (
     <section className="bg-ink-900 text-white">
@@ -694,6 +801,9 @@ function Footer({ lang }) {
         <div className="flex gap-4 text-xs font-bold text-ink-500">
           <a href={APK_URL} className="hover:text-ink-900">{DOWNLOAD_LABEL[lang]}</a>
           <Link to="/learn" className="hover:text-ink-900">{STR.footerWeb[lang]}</Link>
+          <a href={GITHUB_URL} target="_blank" rel="noreferrer" className="hover:text-ink-900 inline-flex items-center gap-1">
+            <Github className="w-3.5 h-3.5" /> GitHub
+          </a>
         </div>
       </div>
     </footer>
