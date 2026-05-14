@@ -169,19 +169,25 @@ export function useSpeechRecognition(lang) {
       try { nativeListenerRef.current?.remove?.() } catch {}
       nativeListenerRef.current = null
 
-      // Two listeners:
-      //   • partialResults fires for every intermediate chunk while user
-      //     is speaking. Last chunk before listeningState=stopped IS the
+      // Three listener channels — different builds of the underlying
+      // plugin emit final transcripts via different events:
+      //   • partialResults: interim chunks during speech. The last chunk
+      //     before stop is usually the final transcript on Capgo's fork.
+      //   • listeningState: {status: 'started'|'stopped'}. Authoritative
+      //     boundary signal — start() promise resolution is unreliable.
+      //   • result: some plugin versions emit a {matches:[...]} on
+      //     end-of-speech. We accept it as an additional source of the
       //     final transcript.
-      //   • listeningState fires {status: 'started'|'stopped'} when the
-      //     recognizer starts and finishes. We rely on this for the
-      //     authoritative "stopped" signal — start() resolution timing
-      //     varies across plugin versions and isn't reliable.
+      const stateListeners = []
+      let cleanedUp = false
       const cleanup = () => {
+        if (cleanedUp) return         // idempotent — listeningState:stopped
+                                      // and start().catch can both call this
+        cleanedUp = true
         if (timeoutRef.current) clearTimeout(timeoutRef.current)
         setListening(false)
-        try { nativeListenerRef.current?.remove?.() } catch {}
-        try { stateListenerRef?.remove?.() } catch {}
+        for (const l of stateListeners) { try { l?.remove?.() } catch {} }
+        stateListeners.length = 0
         nativeListenerRef.current = null
         const text = finalRef.current.trim()
         if (text && onFinalRef.current) {
@@ -192,35 +198,35 @@ export function useSpeechRecognition(lang) {
         }
       }
 
-      let stateListenerRef = null
       try {
-        nativeListenerRef.current = await c.SpeechRecognition.addListener(
-          'partialResults',
-          (r) => {
-            const txt = (r?.matches || [])[0]
-            if (txt) {
-              finalRef.current = txt
-              setInterim(txt)
-              armTimeout(8_000, 'no_speech')  // reset silence countdown
-            }
-          },
-        )
-        stateListenerRef = await c.SpeechRecognition.addListener(
-          'listeningState',
-          (e) => {
-            if (e?.status === 'started') {
-              setListening(true)
-              armTimeout(12_000, 'no_speech')
-            } else if (e?.status === 'stopped') {
-              cleanup()
-            }
-          },
-        )
+        const lA = await c.SpeechRecognition.addListener('partialResults', (r) => {
+          const txt = (r?.matches || [])[0]
+          if (txt) {
+            finalRef.current = txt
+            setInterim(txt)
+            armTimeout(8_000, 'no_speech')  // reset silence countdown
+          }
+        })
+        const lB = await c.SpeechRecognition.addListener('listeningState', (e) => {
+          if (e?.status === 'started') {
+            setListening(true)
+            armTimeout(12_000, 'no_speech')
+          } else if (e?.status === 'stopped') {
+            // Brief delay so a `result` event that fires right after
+            // `stopped` gets a chance to populate finalRef first.
+            setTimeout(cleanup, 80)
+          }
+        })
+        // Some plugin builds emit final matches via `result` rather than
+        // a last `partialResults`. Listening for both is harmless either
+        // way — if neither emits, the no_speech timeout catches it.
+        const lC = await c.SpeechRecognition.addListener('result', (r) => {
+          const txt = (r?.matches || [])[0]
+          if (txt) finalRef.current = txt
+        }).catch(() => null)
+        stateListeners.push(lA, lB, lC)
+        nativeListenerRef.current = lA  // legacy single-handle ref for stop()
 
-        // Fire-and-forget — don't await. The plugin emits listeningState
-        // events to tell us when it's done. Awaiting blocks JS for the
-        // entire mic session (which is why second-tap got "already
-        // running"); now stop() can be called from anywhere.
         c.SpeechRecognition.start({
           language: pickSpeechLang(lang),
           maxResults: 1,
@@ -230,9 +236,9 @@ export function useSpeechRecognition(lang) {
         }).catch((e) => {
           const msg = (e?.message || '').toLowerCase()
           if (msg.includes('already')) {
-            // Another session was already running — force stop, retry once.
+            // Mid-flight session — force stop and let the listeningState
+            // listener fire cleanup naturally. Don't double-cleanup here.
             c.SpeechRecognition.stop().catch(() => {})
-            cleanup()
             return
           }
           if (msg.includes('permission')) setError('mic_permission_denied')
@@ -241,9 +247,12 @@ export function useSpeechRecognition(lang) {
           else setError(e?.message || 'speech_error')
           cleanup()
         })
-        // Hard safety net: if listeningState never fires within 4s, the
-        // plugin didn't actually start. Surface that instead of hanging.
-        armTimeout(4_000, 'recognition_failed_to_start')
+        // Watchdog: if listeningState never reports `started` within 8s
+        // (plugin warm-up is slower on first cold start than I assumed
+        // when this was 4s), surface that as recognition_failed_to_start.
+        // 8s also covers the OS dialog round-trip on devices that show
+        // the permission consent UI inline.
+        armTimeout(8_000, 'recognition_failed_to_start')
       } catch (e) {
         cleanup()
         setError(e?.message || 'speech_error')

@@ -121,9 +121,26 @@ const TRANSITION = [
   /\bHere\s*['’`]?\s*s\s+(?:my|the|a)\s+(?:reply|response|answer)\s*[:.]\s+/i,
 ]
 
+// Catches "<Anyword>'s grade is N", "<Anyword>'s language is X", "<Anyword>'s
+// name is Y" leaks — Gemma 4 sometimes echoes the student's actual name
+// instead of the literal string "user", which the META_LINE regex
+// wouldn't catch ("freddy's grade is 2" → was passing through). We don't
+// know the student's name preemptively, so this is name-shape based.
+// Matches `<owner>'s <field> is <value>.` anywhere in the string.
+// Examples: "freddy's grade is 2.", "the student's language is English",
+// "Aigerim's name is Aigerim." — all pure state leaks. Restricted to a
+// known field list so it can't accidentally eat real prose like
+// "Newton's first law is universal."
+const NAME_FIELD_LEAK = /(?:the\s+|a\s+|an\s+)?[\p{L}A-Za-z][\p{L}A-Za-z'`-]{0,30}['’](?:s)?\s+(grade|language|lang|name|level|xp|streak|hearts|gems|state)\s+(?:is|level\s+is|are)\s+[^.!?\n]+[.!?\n]?/giu
+
 export function stripPlanPreamble(text) {
   // 0) Normalize: drop zero-width chars that occasionally appear.
   let t = (text || '').replace(/[​-‍﻿]/g, '')
+
+  // 0.4) Strip every "<Name>'s grade is …", "<Name>'s language is …"
+  //      sentence anywhere in the lead-in. These are pure state leaks
+  //      and never carry information the student should see.
+  t = t.replace(NAME_FIELD_LEAK, '').trimStart()
 
   // 0.5) Transition-marker extraction. If the text contains a hand-off phrase
   //      ("I'll say:", "My response:", etc.), throw away everything before it.
@@ -277,15 +294,23 @@ export async function handleTutorRequest(req, res) {
   // Convert {role, content[]} messages into Gemini's {role, parts[]} format.
   // Gemini's roles are 'user' and 'model'; assistant maps to 'model'.
   // Tool results live in user-role function-response parts.
+  //
+  // We previously pinned the full studentState JSON as a fake first user
+  // turn so the model had per-conversation context. Gemma 4 has a strong
+  // habit of restating any structured preamble verbatim — replies like
+  // "freddy's grade is 2. freddy's language is english." were the
+  // student's actual `profile.name` getting echoed back. The model
+  // doesn't need the name to write a reply; it needs the language to
+  // know what to write in, and the grade to calibrate vocabulary. Put
+  // those two facts in ONE inconspicuous sentence and skip the rest;
+  // the get_student_state tool retrieves name / XP / streak / struggles
+  // on demand whenever a reply actually requires them.
+  const langName = ({ kk: 'Kazakh', ru: 'Russian', en: 'English' }[studentState?.lang]) || 'English'
+  const gradeNum = Number.isFinite(studentState?.grade) ? studentState.grade : 2
   const contents = []
-  // Pin the volatile student state at the top of the conversation so the
-  // model has fresh context every turn without polluting the (cacheable)
-  // system instruction.
   contents.push({
     role: 'user',
-    parts: [{
-      text: '<student_state>\n' + JSON.stringify(studentState, null, 2) + '\n</student_state>\n\nThe next message is the start of our conversation.',
-    }],
+    parts: [{ text: `(Reply in ${langName}. I'm at grade level ${gradeNum}.)` }],
   })
   for (const m of messages) {
     const role = m.role === 'assistant' ? 'model' : 'user'
