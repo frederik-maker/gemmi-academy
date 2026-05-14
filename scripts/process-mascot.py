@@ -42,6 +42,10 @@ ENCLOSED_BG_MIN_PIXELS = 200
 # Favicon / app-icon variant sizes generated alongside gemmi.png.
 VARIANT_SIZES = [16, 32, 64, 180, 192, 512]
 
+# Multi-size favicon.ico (16/32/48 packed into one .ico file) so browsers that
+# default to favicon.ico over the explicit PNG <link> tags still see the bird.
+ICO_SIZES = [(16, 16), (32, 32), (48, 48)]
+
 
 def main() -> int:
     if not SRC.exists():
@@ -169,6 +173,13 @@ def main() -> int:
             resized = final_img.resize((size, size), Image.LANCZOS)
             resized.save(variant_path, optimize=True)
             print(f"  + {variant_path.name}")
+
+        # Multi-resolution favicon.ico. Browser tabs (especially mobile) often
+        # fall back to favicon.ico ahead of the PNG <link> tags, so this is
+        # the actual "what shows up next to Gemmi Academy in the tab" file.
+        ico_path = ROOT / "public" / "favicon.ico"
+        final_img.save(ico_path, format="ICO", sizes=ICO_SIZES)
+        print(f"  + favicon.ico (multi-size: {ICO_SIZES})")
     else:
         Image.fromarray(out).save(OUT, optimize=True)
         print(f"✓ Wrote {OUT} (no opaque subject found — saved unchanged)")

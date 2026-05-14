@@ -6,16 +6,21 @@
 //   3. /api/tutor is NEVER cached — it always goes to network (or local model).
 //   4. New deploys swap in cleanly without trapping the user on a stale shell.
 
-const SHELL_CACHE = 'gemmi-shell-v5'
-const RUNTIME_CACHE = 'gemmi-runtime-v5'
+const SHELL_CACHE = 'gemmi-shell-v6'
+const RUNTIME_CACHE = 'gemmi-runtime-v6'
 
-// Bare-minimum precache — Vite-hashed assets are picked up at runtime by
-// match-on-fetch instead. We just need enough to render the root HTML offline.
+// Bare-minimum precache. Vite-hashed JS / CSS are picked up at runtime by
+// match-on-fetch (cache-first for `/assets/*`). We precache enough that an
+// offline reload — or a reload while the origin is down — still gets the
+// user a working shell with the mascot.
 const PRECACHE = [
   '/',
   '/index.html',
-  '/icon.svg',
   '/manifest.webmanifest',
+  '/gemmi.png?v=4',
+  '/gemmi-64.png?v=4',
+  '/gemmi-192.png?v=4',
+  '/favicon.ico?v=4',
 ]
 
 self.addEventListener('install', (event) => {
@@ -76,8 +81,8 @@ function cacheable(url) {
   return (
     url.pathname.startsWith('/assets/') ||
     url.pathname.startsWith('/packs/') ||
-    url.pathname === '/icon.svg' ||
     url.pathname === '/manifest.webmanifest' ||
+    url.pathname.startsWith('/gemmi') ||
     /\.(?:woff2?|ttf|otf|css|js)$/.test(url.pathname)
   )
 }

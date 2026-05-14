@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowRight, Globe, Trophy, Flame, Heart, Star, Smartphone, Check, ChevronRight, Sparkles, Award, HelpCircle, X } from 'lucide-react'
@@ -42,17 +42,76 @@ function detectInitialLang() {
 
 // Landing-page-specific copy. The shared ui.* dictionary in i18n.js only
 // covers in-app strings; the marketing copy below lives here.
-// Inline Android robot icon. Lucide doesn't ship one (trademark dance), so a
-// stroke-style 24px SVG with currentColor sits in for the APK download CTA.
+// Inline Android robot icon. The iconic shape is a half-moon dome with two
+// antennae and two eye dots — Lucide doesn't ship it (trademark dance), so
+// we draw it ourselves in their stroke style.
 function AndroidIcon({ className = 'w-5 h-5' }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <line x1="8" y1="2.5" x2="9.5" y2="6" />
-      <line x1="16" y1="2.5" x2="14.5" y2="6" />
-      <path d="M5 11 a7 7 0 0 1 14 0 v5 a1 1 0 0 1-1 1 H6 a1 1 0 0 1-1-1 z" />
-      <circle cx="10" cy="11" r="0.8" fill="currentColor" stroke="none" />
-      <circle cx="14" cy="11" r="0.8" fill="currentColor" stroke="none" />
+      {/* Antennae */}
+      <line x1="8" y1="2.5" x2="9.5" y2="5.5" />
+      <line x1="16" y1="2.5" x2="14.5" y2="5.5" />
+      {/* Half-moon head: dome on top, flat bottom edge */}
+      <path d="M3 16 A9 9 0 0 1 21 16 Z" />
+      {/* Eyes */}
+      <circle cx="9.5" cy="12.5" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="14.5" cy="12.5" r="0.9" fill="currentColor" stroke="none" />
     </svg>
+  )
+}
+
+// Language picker — single-button popover so it works on every screen size.
+// Click the button (showing the current language flag + code), tap any
+// option to switch. Closes on outside click and on Esc.
+function LangPicker({ lang, setLang }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const onClick = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('pointerdown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+  const current = LANGS.find((l) => l.code === lang) || LANGS[0]
+  const label = (l) => (l.code === 'kk' ? 'KZ' : l.code.toUpperCase())
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold text-ink-700 hover:bg-ink-50 border border-ink-200"
+      >
+        <span className="text-base leading-none">{current.flag}</span>
+        <span>{label(current)}</span>
+        <ChevronRight className={`w-3 h-3 transition-transform ${open ? 'rotate-90' : ''}`} strokeWidth={3} />
+      </button>
+      {open && (
+        <ul role="listbox" className="absolute right-0 top-full mt-2 z-50 w-32 rounded-2xl bg-white border-2 border-ink-100 shadow-soft py-1 overflow-hidden">
+          {LANGS.map((l) => (
+            <li key={l.code}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={l.code === lang}
+                onClick={() => { setLang(l.code); setOpen(false) }}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-sm font-bold text-left hover:bg-steppe-50 ${l.code === lang ? 'bg-steppe-50 text-steppe-700' : 'text-ink-700'}`}
+              >
+                <span className="text-base">{l.flag}</span>
+                <span>{label(l)}</span>
+                <span className="ml-auto text-[10px] font-extrabold uppercase text-ink-400">{l.label}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 
@@ -278,16 +337,9 @@ function TopNav({ lang, setLang }) {
             Gemmi<span className="text-steppe-500 ml-1">Academy</span>
           </span>
         </Link>
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-1 text-xs font-bold text-ink-500">
-            {LANGS.map((l) => (
-              <button key={l.code} onClick={() => setLang(l.code)}
-                className={`px-2 py-1 rounded-md ${lang === l.code ? 'bg-ink-100 text-ink-900' : 'hover:bg-ink-50'}`}>
-                {l.flag} {l.code === 'kk' ? 'KZ' : l.code.toUpperCase()}
-              </button>
-            ))}
-          </div>
-          <Link to="/learn" className="btn-primary text-xs px-4 py-2">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <LangPicker lang={lang} setLang={setLang} />
+          <Link to="/learn" className="btn-success text-xs px-3 sm:px-4 py-2">
             {DEMO_LABEL[lang]} <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
