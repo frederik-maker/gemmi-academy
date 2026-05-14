@@ -180,6 +180,60 @@ def main() -> int:
         ico_path = ROOT / "public" / "favicon.ico"
         final_img.save(ico_path, format="ICO", sizes=ICO_SIZES)
         print(f"  + favicon.ico (multi-size: {ICO_SIZES})")
+
+        # Capacitor launcher-icon sources for @capacitor/assets. The CI
+        # workflow runs `npx @capacitor/assets generate` after `cap add
+        # android`; that tool reads these files and writes every mipmap-*
+        # density into the generated android/ project automatically.
+        assets_dir = ROOT / "assets"
+        assets_dir.mkdir(exist_ok=True)
+
+        # Foreground: the bird on transparent, padded so the adaptive-icon
+        # safe area (centre ~66%) holds the whole figure even after Android
+        # crops corners. We upscale to 1024×1024 with extra padding around
+        # the existing 924×924 canvas.
+        ICON_SIDE = 1024
+        SAFE_FRACTION = 0.72  # bird occupies inner ~72% of canvas
+        fg = Image.new("RGBA", (ICON_SIDE, ICON_SIDE), (0, 0, 0, 0))
+        target_side = int(ICON_SIDE * SAFE_FRACTION)
+        bird = final_img.copy()
+        bird.thumbnail((target_side, target_side), Image.LANCZOS)
+        bx = (ICON_SIDE - bird.width) // 2
+        by = (ICON_SIDE - bird.height) // 2
+        fg.paste(bird, (bx, by), bird)
+        fg.save(assets_dir / "icon-foreground.png", optimize=True)
+        print("  + assets/icon-foreground.png (1024×1024, padded for adaptive icon)")
+
+        # Background: solid Gemmi brand blue (#1186f5).
+        bg = Image.new("RGBA", (ICON_SIDE, ICON_SIDE), (0x11, 0x86, 0xf5, 0xff))
+        bg.save(assets_dir / "icon-background.png", optimize=True)
+        print("  + assets/icon-background.png (solid #1186f5)")
+
+        # Combined legacy icon: bird on blue, full bleed. Some Android
+        # launchers fall back to this for pre-O adaptive support.
+        combined = Image.new("RGBA", (ICON_SIDE, ICON_SIDE), (0x11, 0x86, 0xf5, 0xff))
+        combined.paste(bird, (bx, by), bird)
+        combined.save(assets_dir / "icon-only.png", optimize=True)
+        print("  + assets/icon-only.png (legacy fallback)")
+
+        # Splash: 2732×2732 solid blue with bird centred at ~40% size.
+        SPLASH_SIDE = 2732
+        splash = Image.new("RGBA", (SPLASH_SIDE, SPLASH_SIDE), (0x11, 0x86, 0xf5, 0xff))
+        splash_bird = final_img.copy()
+        splash_target = int(SPLASH_SIDE * 0.40)
+        splash_bird.thumbnail((splash_target, splash_target), Image.LANCZOS)
+        sx = (SPLASH_SIDE - splash_bird.width) // 2
+        sy = (SPLASH_SIDE - splash_bird.height) // 2
+        splash.paste(splash_bird, (sx, sy), splash_bird)
+        splash.save(assets_dir / "splash.png", optimize=True)
+        print("  + assets/splash.png (2732×2732 launch screen)")
+
+        # Dark splash: same composition on a near-black navy background so
+        # dark-mode devices don't flash bright blue at launch.
+        splash_dark = Image.new("RGBA", (SPLASH_SIDE, SPLASH_SIDE), (0x0b, 0x15, 0x30, 0xff))
+        splash_dark.paste(splash_bird, (sx, sy), splash_bird)
+        splash_dark.save(assets_dir / "splash-dark.png", optimize=True)
+        print("  + assets/splash-dark.png (dark-mode launch screen)")
     else:
         Image.fromarray(out).save(OUT, optimize=True)
         print(f"✓ Wrote {OUT} (no opaque subject found — saved unchanged)")

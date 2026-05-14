@@ -1,8 +1,10 @@
 name: Build Android APK
 
-# Builds an unsigned debug APK on every push to main, then upserts it as the
-# `apk-latest` GitHub release asset. The landing page links to the asset URL,
-# so users always get the most-recent build without us bumping a release tag.
+# Builds the Android APK on every push to main and upserts it as the
+# apk-latest release asset (so the landing page download link stays
+# stable). The native LiteRT plugin in native/ is spliced into the
+# Capacitor scaffold during the build via scripts/install-native-tutor.sh;
+# the launcher icon + splash are generated from assets/* via @capacitor/assets.
 
 on:
   push:
@@ -43,18 +45,33 @@ jobs:
       - name: Install npm deps
         run: npm ci
 
+      - name: Install @capacitor/assets (icon + splash generator)
+        run: npm install --no-save @capacitor/assets
+
       - name: Build web bundle
         run: npm run build
 
       - name: Add Android platform (generates ./android scaffold)
         run: npx cap add android
 
+      - name: Splice the on-device LiteRT plugin into the Android project
+        # Copies native/*.kt into android/app/src/main/java/co/bussler/gemmi,
+        # registers GemmiTutorPlugin in MainActivity, patches build.gradle
+        # with MediaPipe deps, and drops model.config.json into assets so
+        # the WebView side of the plugin can read it at runtime.
+        run: bash scripts/install-native-tutor.sh
+
+      - name: Generate launcher icon + splash from assets/
+        run: npx @capacitor/assets generate --android --assetPath assets
+
       - name: Sync web bundle into Android project
         run: npx cap sync android
 
       - name: Build debug APK with Gradle
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        # --warning-mode=summary keeps the log readable while still
+        # surfacing Kotlin compile errors loudly.
+        run: ./gradlew assembleDebug --no-daemon --warning-mode=summary
 
       - name: Rename APK
         run: |
@@ -62,14 +79,21 @@ jobs:
           cp android/app/build/outputs/apk/debug/app-debug.apk out/gemmi.apk
           ls -lh out/
 
-      - name: Upsert apk-latest release
+      - name: Upsert apk-latest release (non-destructive)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Delete the old release (if any) then create a fresh one so the
-          # download URL stays stable at .../apk-latest/gemmi.apk
-          gh release delete apk-latest --yes --cleanup-tag || true
-          gh release create apk-latest \
-            --title "Gemmi APK (latest build)" \
-            --notes "Auto-built from commit ${{ github.sha }} on $(date -u +'%Y-%m-%d %H:%M UTC'). Unsigned debug APK." \
-            out/gemmi.apk
+          # If the release already exists, replace just the asset (so the
+          # download URL never breaks mid-deploy). If it doesn't, create it.
+          # This avoids the previous failure mode where a delete-then-create
+          # left users with no APK for ~30 seconds if the create step failed.
+          if gh release view apk-latest >/dev/null 2>&1; then
+            gh release upload apk-latest out/gemmi.apk --clobber
+            gh release edit apk-latest \
+              --notes "Auto-built from commit ${{ github.sha }} on $(date -u +'%Y-%m-%d %H:%M UTC'). Unsigned debug APK."
+          else
+            gh release create apk-latest \
+              --title "Gemmi APK (latest build)" \
+              --notes "Auto-built from commit ${{ github.sha }} on $(date -u +'%Y-%m-%d %H:%M UTC'). Unsigned debug APK." \
+              out/gemmi.apk
+          fi

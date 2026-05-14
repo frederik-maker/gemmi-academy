@@ -370,7 +370,7 @@ export default function Landing() {
 
 function TopNav({ lang, setLang }) {
   return (
-    <div className="sticky top-0 z-30 backdrop-blur bg-white/85 border-b border-ink-100">
+    <div className="sticky top-0 z-30 backdrop-blur bg-white/85 border-b border-ink-100" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 group">
           {/* Use the 64px PNG with a cache-buster so retina nav stays crisp
