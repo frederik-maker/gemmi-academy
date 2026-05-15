@@ -273,9 +273,17 @@ export function stripPlanPreamble(text) {
     const all = t.split('\n')
     const idxs = []
     for (let i = 0; i < all.length; i++) if (all[i].trim()) idxs.push(i)
-    if (idxs.length >= 2 &&
-        /^\s*1\.\s+\S/.test(all[idxs[0]]) &&
-        /^\s*2\.\s+\S/.test(all[idxs[1]])) {
+    // Sequential numbered plan: two adjacent lines that are N. and (N+1).
+    // Was requiring 1./2. specifically, but Gemma 4 sometimes starts at
+    // 2. (e.g. when the first plan item got stripped by an earlier pass).
+    const seqMatch = (() => {
+      if (idxs.length < 2) return false
+      const m0 = all[idxs[0]].match(/^\s*(\d+)\.\s+\S/)
+      const m1 = all[idxs[1]].match(/^\s*(\d+)\.\s+\S/)
+      if (!m0 || !m1) return false
+      return parseInt(m1[1], 10) === parseInt(m0[1], 10) + 1
+    })()
+    if (seqMatch) {
       let k = 0
       let lastBlockIdx = idxs[0]
       while (k < idxs.length && /^\s*\d+\.\s+\S/.test(all[idxs[k]])) {
