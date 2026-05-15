@@ -155,7 +155,7 @@ const NAME_FIELD_LEAK = /(?:the\s+|a\s+|an\s+)?[\p{L}A-Za-z][\p{L}A-Za-z'`-]{0,3
 // like prose. Triggers a retry. These all describe behaviour ABOUT the
 // reply (what I'll do, what the user did, format I'll use) rather than
 // being a reply TO the student.
-const LEAK_SIGNAL = /\b(?:once\s+i\s+have|since\s+(?:the\s+(?:user|student|child)|it'?s|this\s+is|that'?s|i\s+am|i'?m|they\s+are|they'?re)|no\s+(?:specific\s+)?(?:lessons?|results?|matches?|content)\s+(?:found|available|exist|in\s+the)|i\s+will\s+(?:just\s+)?(?:explain|provide|give|answer|tell|help)|i\s+(?:will\s+answer|should\s+(?:check|call|ask|respond|use|just|note|mention|encourage|format)|need\s+to\s+(?:call|use|respond|answer|note)|don'?t\s+need|do\s+not\s+need|am\s+going\s+to|am\s+supposed|see\s+(?:that|the)|notice\s+(?:that|the)|can\s+see)|the\s+(?:student|user|child)\s+(?:is\s+asking|asked|wants|picked|chose|selected|is\s+(?:grade|in\s+grade|at\s+grade))|grade\s+\d+\s*\(college|college\s*\/\s*adult|high[\s-]?school\)|^\s*grade\s+\d+\s*:|undergrad-level|multivar\s+calc|organic\s+synthesis,\s+advanced\s+topics|they\s+(?:want|are\s+likely|are\s+testing|are\s+confused|felt|provided|asked)|maybe\s+(?:the\s+)?(?:user|student)\s+is|wait,?\s+looking\s+(?:at|back)|previous\s+(?:response|reply|answer|attempt|question|interaction|turn|message|input|exchange|output)\s+(?:was|is|had)|(?:my|the)\s+previous\s+(?:response|reply|answer|attempt|question|interaction|turn|message|input|exchange|output)|the\s+question\s+is|the\s+answer\s+is\s+just|the\s+language\s+is\s+\w+\s*\.?$|^\s*the\s+language\s+is\b|(?:format|response|reply)\s+(?:should|will|must)|(?:my|the)\s+(?:reply|response|answer|draft)\s+(?:should|will|needs|is)|in\s+(?:english|russian|kazakh|kazak|spanish|french|german|chinese)\s*[:,]|i'?ll\s+just|let\s+me\s+(?:think|consider|answer|respond)|the\s+(?:user|student)'?s\s+language\s+is|(?:user|student)'?s\s+(?:prompt|question|message|input|instruction)\s+is|the\s+(?:user|student)'?s\s+(?:prompt|message|input|instruction)|meta-instruction|thought\s+block|persona|gemmi\s+persona|according\s+to\s+(?:the\s+)?(?:instructions?|prompt|rules?|system|guidelines)|the\s+(?:system\s+|prompt\s+|user'?s\s+|student'?s\s+)?(?:instructions?|prompt|rules?|system|guidelines|directive|persona|constraints?|format)\s+(?:say(?:s|ing)?|tells?\s+me|states?|requires?|wants?|asks?|specif(?:y|ies|ied))|however,?\s+the\s+(?:user|student|prompt|instructions?))\b/i
+const LEAK_SIGNAL = /\b(?:once\s+i\s+have|since\s+(?:the\s+(?:user|student|child)|it'?s|this\s+is|that'?s|i\s+am|i'?m|they\s+are|they'?re)|no\s+(?:specific\s+)?(?:lessons?|results?|matches?|content)\s+(?:found|available|exist|in\s+the)|i\s+will\s+(?:just\s+)?(?:explain|provide|give|answer|tell|help)|i\s+(?:will\s+answer|should\s+(?:check|call|ask|respond|use|just|note|mention|encourage|format)|need\s+to\s+(?:call|use|respond|answer|note)|don'?t\s+need|do\s+not\s+need|am\s+going\s+to|am\s+supposed|see\s+(?:that|the)|notice\s+(?:that|the)|can\s+see)|the\s+(?:student|user|child)\s+(?:is\s+asking|asked|wants|picked|chose|selected|is\s+(?:grade|in\s+grade|at\s+grade))|grade\s+\d+\s*\(college|college\s*\/\s*adult|high[\s-]?school\)|^\s*grade\s+\d+\s*:|undergrad-level|multivar\s+calc|organic\s+synthesis,\s+advanced\s+topics|speak\s+to\s+the\s+child\s+in\s+(?:their|the\s+student'?s?)\s+language|1[\s\-–]+3\s+short\s+sentences|in\s+(?:their|the\s+student'?s?)\s+language\s+in\s+\d|no\s+(?:specific\s+|history\s+|science\s+|math\s+|relevant\s+)?lessons?\s+(?:in\s+the\s+)?curriculum|find\s+(?:some\s+)?(?:general\s+)?(?:history|math|science)\s+lessons?|i'?ll\s+try\s+to\s+find|they\s+(?:want|are\s+likely|are\s+testing|are\s+confused|felt|provided|asked)|maybe\s+(?:the\s+)?(?:user|student)\s+is|wait,?\s+looking\s+(?:at|back)|previous\s+(?:response|reply|answer|attempt|question|interaction|turn|message|input|exchange|output)\s+(?:was|is|had)|(?:my|the)\s+previous\s+(?:response|reply|answer|attempt|question|interaction|turn|message|input|exchange|output)|the\s+question\s+is|the\s+answer\s+is\s+just|the\s+language\s+is\s+\w+\s*\.?$|^\s*the\s+language\s+is\b|(?:format|response|reply)\s+(?:should|will|must)|(?:my|the)\s+(?:reply|response|answer|draft)\s+(?:should|will|needs|is)|in\s+(?:english|russian|kazakh|kazak|spanish|french|german|chinese)\s*[:,]|i'?ll\s+just|let\s+me\s+(?:think|consider|answer|respond)|the\s+(?:user|student)'?s\s+language\s+is|(?:user|student)'?s\s+(?:prompt|question|message|input|instruction)\s+is|the\s+(?:user|student)'?s\s+(?:prompt|message|input|instruction)|meta-instruction|thought\s+block|persona|gemmi\s+persona|according\s+to\s+(?:the\s+)?(?:instructions?|prompt|rules?|system|guidelines)|the\s+(?:system\s+|prompt\s+|user'?s\s+|student'?s\s+)?(?:instructions?|prompt|rules?|system|guidelines|directive|persona|constraints?|format)\s+(?:say(?:s|ing)?|tells?\s+me|states?|requires?|wants?|asks?|specif(?:y|ies|ied))|however,?\s+the\s+(?:user|student|prompt|instructions?))\b/i
 
 // Bare-label preambles Gemma 4 emits when the question is non-English:
 //   "Task: Answer directly in 1-3 short sentences."
@@ -616,7 +616,28 @@ export async function handleTutorRequest(req, res) {
       if (textBuffer.trim() && pendingTools.length === 0) {
         const cleaned = stripPlanPreamble(textBuffer)
         const looksLikeLeak = cleaned && LEAK_SIGNAL.test(cleaned)
-        if (cleaned && !looksLikeLeak) {
+        // Language-mismatch detection. If the student wrote in Russian or
+        // Kazakh (Cyrillic) and the reply is mostly Latin alphabet, that's
+        // either a chain-of-thought leak ("English math question -> ...")
+        // or the model defaulting to English on a complex topic. Either
+        // way, retry. A reply with ≥30 Latin letters and <10% Cyrillic
+        // chars is treated as wrong-language.
+        const wrongLang = (() => {
+          if (!cleaned) return false
+          const studentLang = studentState?.lang
+          if (studentLang !== 'kk' && studentLang !== 'ru') return false
+          let cyrillic = 0, latin = 0
+          for (const c of cleaned) {
+            const code = c.charCodeAt(0)
+            if (code >= 0x0400 && code <= 0x04FF) cyrillic++
+            else if ((code >= 65 && code <= 90) || (code >= 97 && code <= 122)) latin++
+          }
+          // Only flag when Latin clearly dominates: at least 30 Latin
+          // chars and < 1/3 the Cyrillic count. Stops false positives on
+          // short math replies like "2 + 2 = 4!" (which has 0 of each).
+          return latin >= 30 && cyrillic < latin / 3
+        })()
+        if (cleaned && !looksLikeLeak && !wrongLang) {
           write({ type: 'delta', text: cleaned })
         } else if (cleanRetries < 2) {
           // SILENT retry — don't touch contents, don't inject any hint
