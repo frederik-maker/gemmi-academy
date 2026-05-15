@@ -155,7 +155,7 @@ const NAME_FIELD_LEAK = /(?:the\s+|a\s+|an\s+)?[\p{L}A-Za-z][\p{L}A-Za-z'`-]{0,3
 // like prose. Triggers a retry. These all describe behaviour ABOUT the
 // reply (what I'll do, what the user did, format I'll use) rather than
 // being a reply TO the student.
-const LEAK_SIGNAL = /\b(?:once\s+i\s+have|since\s+(?:the\s+(?:user|student|child)|it'?s|this\s+is|that'?s|i\s+am|i'?m)|i\s+(?:will\s+answer|should\s+(?:check|call|ask|respond|use|just|note|mention|encourage|format)|need\s+to\s+(?:call|use|respond|answer|note)|don'?t\s+need|do\s+not\s+need|am\s+going\s+to|am\s+supposed|see\s+(?:that|the)|notice\s+(?:that|the)|can\s+see)|the\s+(?:student|user|child)\s+(?:is\s+asking|asked|wants|picked|chose|selected|is\s+(?:grade|in\s+grade|at\s+grade))|grade\s+\d+\s*\(college|college\s*\/\s*adult|high[\s-]?school\)|they\s+(?:want|are\s+likely|are\s+testing|are\s+confused|felt|provided|asked)|maybe\s+(?:the\s+)?(?:user|student)\s+is|wait,?\s+looking\s+(?:at|back)|previous\s+(?:response|reply|answer|attempt|question|interaction|turn|message|input|exchange|output)\s+(?:was|is|had)|(?:my|the)\s+previous\s+(?:response|reply|answer|attempt|question|interaction|turn|message|input|exchange|output)|the\s+question\s+is|the\s+answer\s+is\s+just|the\s+language\s+is\s+\w+\s*\.?$|^\s*the\s+language\s+is\b|(?:format|response|reply)\s+(?:should|will|must)|(?:my|the)\s+(?:reply|response|answer|draft)\s+(?:should|will|needs|is)|in\s+(?:english|russian|kazakh|kazak|spanish|french|german|chinese)\s*[:,]|i'?ll\s+just|let\s+me\s+(?:think|consider|answer|respond)|the\s+(?:user|student)'?s\s+language\s+is|(?:user|student)'?s\s+(?:prompt|question|message|input|instruction)\s+is|the\s+(?:user|student)'?s\s+(?:prompt|message|input|instruction)|meta-instruction|thought\s+block|persona|gemmi\s+persona|according\s+to\s+(?:the\s+)?(?:instructions?|prompt|rules?|system|guidelines)|the\s+(?:instructions?|prompt|rules?|system|guidelines|directive|persona)\s+say(?:s|ing)?|however,?\s+the\s+(?:user|student|prompt|instructions?))\b/i
+const LEAK_SIGNAL = /\b(?:once\s+i\s+have|since\s+(?:the\s+(?:user|student|child)|it'?s|this\s+is|that'?s|i\s+am|i'?m)|i\s+(?:will\s+answer|should\s+(?:check|call|ask|respond|use|just|note|mention|encourage|format)|need\s+to\s+(?:call|use|respond|answer|note)|don'?t\s+need|do\s+not\s+need|am\s+going\s+to|am\s+supposed|see\s+(?:that|the)|notice\s+(?:that|the)|can\s+see)|the\s+(?:student|user|child)\s+(?:is\s+asking|asked|wants|picked|chose|selected|is\s+(?:grade|in\s+grade|at\s+grade))|grade\s+\d+\s*\(college|college\s*\/\s*adult|high[\s-]?school\)|they\s+(?:want|are\s+likely|are\s+testing|are\s+confused|felt|provided|asked)|maybe\s+(?:the\s+)?(?:user|student)\s+is|wait,?\s+looking\s+(?:at|back)|previous\s+(?:response|reply|answer|attempt|question|interaction|turn|message|input|exchange|output)\s+(?:was|is|had)|(?:my|the)\s+previous\s+(?:response|reply|answer|attempt|question|interaction|turn|message|input|exchange|output)|the\s+question\s+is|the\s+answer\s+is\s+just|the\s+language\s+is\s+\w+\s*\.?$|^\s*the\s+language\s+is\b|(?:format|response|reply)\s+(?:should|will|must)|(?:my|the)\s+(?:reply|response|answer|draft)\s+(?:should|will|needs|is)|in\s+(?:english|russian|kazakh|kazak|spanish|french|german|chinese)\s*[:,]|i'?ll\s+just|let\s+me\s+(?:think|consider|answer|respond)|the\s+(?:user|student)'?s\s+language\s+is|(?:user|student)'?s\s+(?:prompt|question|message|input|instruction)\s+is|the\s+(?:user|student)'?s\s+(?:prompt|message|input|instruction)|meta-instruction|thought\s+block|persona|gemmi\s+persona|according\s+to\s+(?:the\s+)?(?:instructions?|prompt|rules?|system|guidelines)|the\s+(?:system\s+|prompt\s+|user'?s\s+|student'?s\s+)?(?:instructions?|prompt|rules?|system|guidelines|directive|persona|constraints?|format)\s+(?:say(?:s|ing)?|tells?\s+me|states?|requires?|wants?|asks?|specif(?:y|ies|ied))|however,?\s+the\s+(?:user|student|prompt|instructions?))\b/i
 
 // Bare-label preambles Gemma 4 emits when the question is non-English:
 //   "Task: Answer directly in 1-3 short sentences."
@@ -223,7 +223,10 @@ export function stripPlanPreamble(text) {
 
       // META-prefix line: strip the meta prefix if it ends with a label-
       // style ":" or a short soft-marker like "Actually, ", keep the
-      // tail; otherwise drop the line entirely as pure narration.
+      // tail. If neither, check for a sentence break (period + space +
+      // Uppercase/$/quote) that hands off to a real answer — common in
+      // mashed leaks like "the system instruction says ... 1-3 short
+      // sentences. 2+2 = 4!". Otherwise drop the line entirely.
       const metaMatch = line.match(META_LINE)
       if (metaMatch) {
         const after = line.slice(metaMatch[0].length).trim()
@@ -231,6 +234,15 @@ export function stripPlanPreamble(text) {
         const isSoft = metaMatch[0].length < 30 && /[,:.]\s*$/.test(metaMatch[0])
         if (after.length > 6 && (isLabel || isSoft)) {
           headLines[h] = after
+          break
+        }
+        // Sentence-break extraction: "<long meta prose>. <Real answer>"
+        // where the second half starts with an uppercase letter, $, quote,
+        // digit (math answer like "2+2=4"), or an emoji ("🌈 Light...").
+        // Avoid `the`/`it`/`this` starts — those are usually still meta.
+        const sentSplit = line.match(/[.!?]\s+((?!(?:the|it'?s|this|that|since)\b)[A-ZА-ЯҚҒҰҮӘӨҺІ\$"\d][^\n]{3,})$/iu)
+        if (sentSplit && sentSplit[1].trim().length > 3) {
+          headLines[h] = sentSplit[1].trim()
           break
         }
         h++
@@ -242,7 +254,10 @@ export function stripPlanPreamble(text) {
       if (TOOL_NAME_RE.test(line) && /\b(returned|failed|completed|gave|provided|shows)\b/i.test(line)) { h++; continue }
       break
     }
-    if (h > 0) t = headLines.slice(h).join('\n').trim()
+    // Always reflect mutations back to `t`. Without this, the
+    // sentence-break extraction (which sets headLines[0] = answer) gets
+    // silently discarded when h stays at 0.
+    t = headLines.slice(h).join('\n').trim()
   }
 
   // 0.2) Numbered-plan block at the (new) head. Gemma 4 sometimes opens with:
