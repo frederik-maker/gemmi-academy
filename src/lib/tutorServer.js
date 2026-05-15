@@ -155,7 +155,7 @@ const NAME_FIELD_LEAK = /(?:the\s+|a\s+|an\s+)?[\p{L}A-Za-z][\p{L}A-Za-z'`-]{0,3
 // like prose. Triggers a retry. These all describe behaviour ABOUT the
 // reply (what I'll do, what the user did, format I'll use) rather than
 // being a reply TO the student.
-const LEAK_SIGNAL = /\b(?:once\s+i\s+have|since\s+(?:the\s+(?:user|student|child)|it'?s|this\s+is|that'?s|i\s+am|i'?m)|i\s+(?:will\s+answer|should\s+(?:check|call|ask|respond|use|just|note|mention|encourage|format)|need\s+to\s+(?:call|use|respond|answer|note)|don'?t\s+need|do\s+not\s+need|am\s+going\s+to|am\s+supposed|see\s+(?:that|the)|notice\s+(?:that|the)|can\s+see)|the\s+(?:student|user|child)\s+(?:is\s+asking|asked|wants|picked|chose|selected|is\s+(?:grade|in\s+grade|at\s+grade))|grade\s+\d+\s*\(college|college\s*\/\s*adult|high[\s-]?school\)|they\s+(?:want|are\s+likely|are\s+testing|are\s+confused|felt|provided|asked)|maybe\s+(?:the\s+)?(?:user|student)\s+is|wait,?\s+looking\s+(?:at|back)|previous\s+(?:response|reply|answer|attempt|question|interaction|turn|message|input|exchange|output)\s+(?:was|is|had)|(?:my|the)\s+previous\s+(?:response|reply|answer|attempt|question|interaction|turn|message|input|exchange|output)|the\s+question\s+is|the\s+answer\s+is\s+just|the\s+language\s+is\s+\w+\s*\.?$|^\s*the\s+language\s+is\b|(?:format|response|reply)\s+(?:should|will|must)|(?:my|the)\s+(?:reply|response|answer|draft)\s+(?:should|will|needs|is)|in\s+(?:english|russian|kazakh|kazak|spanish|french|german|chinese)\s*[:,]|i'?ll\s+just|let\s+me\s+(?:think|consider|answer|respond)|the\s+(?:user|student)'?s\s+language\s+is|(?:user|student)'?s\s+(?:prompt|question|message|input|instruction)\s+is|the\s+(?:user|student)'?s\s+(?:prompt|message|input|instruction)|meta-instruction|thought\s+block|persona|gemmi\s+persona|according\s+to\s+(?:the\s+)?(?:instructions?|prompt|rules?|system|guidelines)|the\s+(?:system\s+|prompt\s+|user'?s\s+|student'?s\s+)?(?:instructions?|prompt|rules?|system|guidelines|directive|persona|constraints?|format)\s+(?:say(?:s|ing)?|tells?\s+me|states?|requires?|wants?|asks?|specif(?:y|ies|ied))|however,?\s+the\s+(?:user|student|prompt|instructions?))\b/i
+const LEAK_SIGNAL = /\b(?:once\s+i\s+have|since\s+(?:the\s+(?:user|student|child)|it'?s|this\s+is|that'?s|i\s+am|i'?m|they\s+are|they'?re)|no\s+(?:specific\s+)?(?:lessons?|results?|matches?|content)\s+(?:found|available|exist|in\s+the)|i\s+will\s+(?:just\s+)?(?:explain|provide|give|answer|tell|help)|i\s+(?:will\s+answer|should\s+(?:check|call|ask|respond|use|just|note|mention|encourage|format)|need\s+to\s+(?:call|use|respond|answer|note)|don'?t\s+need|do\s+not\s+need|am\s+going\s+to|am\s+supposed|see\s+(?:that|the)|notice\s+(?:that|the)|can\s+see)|the\s+(?:student|user|child)\s+(?:is\s+asking|asked|wants|picked|chose|selected|is\s+(?:grade|in\s+grade|at\s+grade))|grade\s+\d+\s*\(college|college\s*\/\s*adult|high[\s-]?school\)|^\s*grade\s+\d+\s*:|undergrad-level|multivar\s+calc|organic\s+synthesis,\s+advanced\s+topics|they\s+(?:want|are\s+likely|are\s+testing|are\s+confused|felt|provided|asked)|maybe\s+(?:the\s+)?(?:user|student)\s+is|wait,?\s+looking\s+(?:at|back)|previous\s+(?:response|reply|answer|attempt|question|interaction|turn|message|input|exchange|output)\s+(?:was|is|had)|(?:my|the)\s+previous\s+(?:response|reply|answer|attempt|question|interaction|turn|message|input|exchange|output)|the\s+question\s+is|the\s+answer\s+is\s+just|the\s+language\s+is\s+\w+\s*\.?$|^\s*the\s+language\s+is\b|(?:format|response|reply)\s+(?:should|will|must)|(?:my|the)\s+(?:reply|response|answer|draft)\s+(?:should|will|needs|is)|in\s+(?:english|russian|kazakh|kazak|spanish|french|german|chinese)\s*[:,]|i'?ll\s+just|let\s+me\s+(?:think|consider|answer|respond)|the\s+(?:user|student)'?s\s+language\s+is|(?:user|student)'?s\s+(?:prompt|question|message|input|instruction)\s+is|the\s+(?:user|student)'?s\s+(?:prompt|message|input|instruction)|meta-instruction|thought\s+block|persona|gemmi\s+persona|according\s+to\s+(?:the\s+)?(?:instructions?|prompt|rules?|system|guidelines)|the\s+(?:system\s+|prompt\s+|user'?s\s+|student'?s\s+)?(?:instructions?|prompt|rules?|system|guidelines|directive|persona|constraints?|format)\s+(?:say(?:s|ing)?|tells?\s+me|states?|requires?|wants?|asks?|specif(?:y|ies|ied))|however,?\s+the\s+(?:user|student|prompt|instructions?))\b/i
 
 // Bare-label preambles Gemma 4 emits when the question is non-English:
 //   "Task: Answer directly in 1-3 short sentences."
@@ -424,12 +424,37 @@ export function stripPlanPreamble(text) {
   const bareLabelQuoted = out.match(BARE_LABEL_QUOTED)
   if (bareLabelQuoted) out = bareLabelQuoted[1].trim()
 
-  // 5) Final dedupe pass: if the cleaned text is the same sentence repeated
-  //    back-to-back (e.g. `X.X.` or `X. X.`), collapse to one copy.
-  //    Min length 10 (was 20) to catch short math replies like
-  //    "$2 + 2 = 4$ болады!$2 + 2 = 4$ болады!" — 19 chars per half.
-  const halfMatch = out.match(/^(.{10,500}[.!?])\s*\1$/s)
-  if (halfMatch) out = halfMatch[1].trim()
+  // 5) Final dedupe pass. Two shapes:
+  //    a) Exact-match doubled sentence: `X.X.` or `X. X.` → collapse.
+  //    b) Paraphrased doubled sentence: "A rainbow happens...!A rainbow
+  //       happens... 🌈" — slightly different wording, same content.
+  // Min 6 chars (down from 10) to catch short math doubles like
+  // "2+2=4.2+2=4." which is 6+6=12 total.
+  const exactMatch = out.match(/^(.{6,500}[.!?])\s*\1$/s)
+  if (exactMatch) {
+    out = exactMatch[1].trim()
+  } else if (out.length > 60) {
+    // Sweep every sentence terminator and test if the two halves share
+    // the same opening prefix. Brittle to do with a single regex because
+    // greedy matching binds group 1 to the LAST terminator regardless
+    // of whether that produces a dedup match.
+    const normHead = (s) => s.toLowerCase().replace(/[^a-zа-я0-9]/giu, '').slice(0, 30)
+    for (let i = 30; i < out.length - 30; i++) {
+      if (!/[.!?]/.test(out[i])) continue
+      const a = out.slice(0, i + 1).trim()
+      let j = i + 1
+      while (j < out.length && /\s/.test(out[j])) j++
+      const b = out.slice(j).trim()
+      if (a.length < 20 || b.length < 20) continue
+      if (normHead(a).length < 20) continue
+      if (normHead(a) === normHead(b)) {
+        // Same paraphrase. Keep the longer copy (model usually finalises
+        // with an emoji or extra punctuation on the second draft).
+        out = (b.length >= a.length ? b : a).trim()
+        break
+      }
+    }
+  }
 
   // 6) Last-resort fallback: nothing survived the filter. Find the first
   //    sentence-looking line anywhere in the original text.

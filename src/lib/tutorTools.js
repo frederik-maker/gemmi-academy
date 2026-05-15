@@ -42,7 +42,7 @@ export const TUTOR_TOOLS = [
   {
     name: 'generate_practice_question',
     description:
-      "Produce ONE new practice multiple-choice question, age-appropriate for the student's grade band. Use when they say 'quiz me', 'test me', 'one more'. Shape: { prompt, options (exactly 4), correctIndex, why_correct }. Do NOT reveal the correct answer in `prompt`.\n\nCRITICAL difficulty calibration by grade, DO NOT IGNORE:\n- grade 1: counting, single shapes, picture recognition. e.g. 'How many ⭐⭐⭐?'\n- grade 2: 2-digit arithmetic, halves/quarters, vocabulary in pictures. e.g. '14 − 6 = ?'\n- grade 3: multiplication, percents, basic algebra, animal cell parts. e.g. '12 × 8 = ?' or 'What does a mitochondrion do?'\n- grade 4: high-school math (quadratics, trig), stoichiometry, organic chem intro, dated history with cause/effect. e.g. 'Solve $x^2 - 5x + 6 = 0$' or 'In the reaction $2H_2 + O_2 \\to 2H_2O$, how many moles of water from 4 mol $H_2$?'\n- grade 5: undergrad-level math/science. multivar calc, organic synthesis, advanced topics. e.g. 'Compute $\\int_0^\\pi \\sin^2 x \\, dx$'.\n\nABSOLUTE RULE: a high-school student (grade 4) MUST NOT receive '24 × 3' or 'what's 5 + 7', that's grade 1-2 material. If you can't think of a grade-appropriate question for the topic, pick a different topic. NEVER lowball.",
+      "Produce ONE practice multiple-choice question at the student's grade level. Use when they ask to be quizzed. Shape: { prompt, options (exactly 4), correctIndex, why_correct }. Do NOT reveal the correct answer in `prompt`. Match the question difficulty to the student's grade — never simpler than they're ready for.",
     input_schema: {
       type: 'object',
       properties: {
