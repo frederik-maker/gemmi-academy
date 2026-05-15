@@ -72,6 +72,12 @@ export function useSpeechRecognition(lang) {
   // the mic button leaked the partialResults/result listeners.)
   const nativeListenersRef = useRef([])
   const timeoutRef = useRef(null)
+  // Bumped on every start() — lets the cleanup closure from a stale
+  // session detect that a new session has begun and skip its side effects.
+  const sessionIdRef = useRef(0)
+  // Toggled when state is being torn down. Skips re-entry into stop() from
+  // overlapping paths (timeout firing while user taps mic again, etc.).
+  const tearingDownRef = useRef(false)
 
   // Probe native availability once.
   useEffect(() => {
@@ -91,7 +97,12 @@ export function useSpeechRecognition(lang) {
 
   const armTimeout = useCallback((ms, msg) => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    const session = sessionIdRef.current
     timeoutRef.current = setTimeout(() => {
+      // A new start() invalidates timeouts armed by older sessions; the
+      // newer session is responsible for its own.
+      if (session !== sessionIdRef.current) return
+      console.log('[voice]', 'timeout', msg, { session })
       stop()
       setError(msg)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -100,8 +111,10 @@ export function useSpeechRecognition(lang) {
   }, [])
 
   const stop = useCallback(async () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    tearingDownRef.current = true
+    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null }
     setListening(false)
+    setInterim('')
     try { recogRef.current?.stop() } catch {}
     recogRef.current = null
     const c = await cap()
@@ -110,21 +123,44 @@ export function useSpeechRecognition(lang) {
       for (const l of nativeListenersRef.current) { try { l?.remove?.() } catch {} }
       nativeListenersRef.current = []
     }
+    tearingDownRef.current = false
   }, [])
 
   const start = useCallback(async (onFinal) => {
+    // Bump session ID so any in-flight cleanup closures from a previous
+    // session bail out before mutating state on the new session.
+    sessionIdRef.current += 1
+    const mySession = sessionIdRef.current
+    // Diagnostic — visible in `adb logcat -s Chromium` / WebView console.
+    // Tagged so the user can grep "voice:" if mic gets weird.
+    console.log('[voice]', 'start', { session: mySession, lang })
+
+    // Synchronous hard reset BEFORE any await. Belt and suspenders: if
+    // the previous session ended weirdly (no listeningState:stopped, OS
+    // recognizer in a bad state), nothing about its leftover state
+    // affects this one.
+    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null }
+    for (const l of nativeListenersRef.current) { try { l?.remove?.() } catch {} }
+    nativeListenersRef.current = []
     setError(null)
     setInterim('')
+    setListening(false)
     finalRef.current = ''
     onFinalRef.current = onFinal
 
     const c = await cap()
+    // If another start() began while we awaited cap() (impossible from
+    // a single UI thread but defensive), bail.
+    if (mySession !== sessionIdRef.current) return
+
     // --- Native path -------------------------------------------------------
     if (c.native && c.SpeechRecognition) {
       try {
         const perm = await c.SpeechRecognition.checkPermissions()
+        if (mySession !== sessionIdRef.current) return
         if (perm?.speechRecognition !== 'granted') {
           const ask = await c.SpeechRecognition.requestPermissions()
+          if (mySession !== sessionIdRef.current) return
           if (ask?.speechRecognition !== 'granted') {
             setError('mic_permission_denied')
             return
@@ -168,15 +204,15 @@ export function useSpeechRecognition(lang) {
         }
       } catch { /* getSupportedLanguages not available — try anyway */ }
 
-      // If a previous session is still running (start never resolved cleanly,
-      // or the user tapped twice fast), force-stop it and remove ALL
-      // listeners from the previous session. Removing just the head handle
-      // (the way an older version of this code did) left partialResults +
-      // result listeners attached, causing double-fire when the second
-      // start() registered its own.
+      // Force-stop any leftover session in the OS-level recognizer. The
+      // Android SpeechRecognizer can be in a "stopped but not destroyed"
+      // state where calling start() silently does nothing — this stop
+      // call kicks it out of that state. The hard reset at the top of
+      // start() already cleared our listener handles; we don't need to
+      // remove them again here, but the explicit stop on the native side
+      // is critical for recovery after a session that timed out.
       try { await c.SpeechRecognition.stop() } catch { /* not running, fine */ }
-      for (const l of nativeListenersRef.current) { try { l?.remove?.() } catch {} }
-      nativeListenersRef.current = []
+      if (mySession !== sessionIdRef.current) return
 
       // Three listener channels — different builds of the underlying
       // plugin emit final transcripts via different events:
@@ -189,11 +225,14 @@ export function useSpeechRecognition(lang) {
       //     final transcript.
       let cleanedUp = false
       const cleanup = () => {
-        if (cleanedUp) return         // idempotent — listeningState:stopped
-                                      // and start().catch can both call this
+        if (cleanedUp) return         // idempotent
         cleanedUp = true
-        if (timeoutRef.current) clearTimeout(timeoutRef.current)
+        // Stale session — a newer start() has already overwritten state.
+        // Don't touch anything; the new session owns it.
+        if (mySession !== sessionIdRef.current) return
+        if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null }
         setListening(false)
+        setInterim('')
         for (const l of nativeListenersRef.current) { try { l?.remove?.() } catch {} }
         nativeListenersRef.current = []
         const text = finalRef.current.trim()
@@ -207,17 +246,20 @@ export function useSpeechRecognition(lang) {
 
       try {
         const lA = await c.SpeechRecognition.addListener('partialResults', (r) => {
+          if (mySession !== sessionIdRef.current) return    // stale event
           const txt = (r?.matches || [])[0]
           if (txt) {
             finalRef.current = txt
             setInterim(txt)
-            armTimeout(8_000, 'no_speech')  // reset silence countdown
+            armTimeout(6_000, 'no_speech')  // shorter silence window once we've heard *something*
           }
         })
         const lB = await c.SpeechRecognition.addListener('listeningState', (e) => {
+          if (mySession !== sessionIdRef.current) return    // stale event
+          console.log('[voice]', 'listeningState', e?.status, { session: mySession })
           if (e?.status === 'started') {
             setListening(true)
-            armTimeout(12_000, 'no_speech')
+            armTimeout(8_000, 'no_speech')   // first-word window
           } else if (e?.status === 'stopped') {
             // Brief delay so a `result` event that fires right after
             // `stopped` gets a chance to populate finalRef first.
@@ -228,6 +270,7 @@ export function useSpeechRecognition(lang) {
         // a last `partialResults`. Listening for both is harmless either
         // way — if neither emits, the no_speech timeout catches it.
         const lC = await c.SpeechRecognition.addListener('result', (r) => {
+          if (mySession !== sessionIdRef.current) return
           const txt = (r?.matches || [])[0]
           if (txt) finalRef.current = txt
         }).catch(() => null)
@@ -240,10 +283,13 @@ export function useSpeechRecognition(lang) {
           partialResults: true,
           popup: false,
         }).catch((e) => {
+          if (mySession !== sessionIdRef.current) return
+          console.log('[voice]', 'start.catch', e?.message, { session: mySession })
           const msg = (e?.message || '').toLowerCase()
           if (msg.includes('already')) {
-            // Mid-flight session — force stop and let the listeningState
-            // listener fire cleanup naturally. Don't double-cleanup here.
+            // Mid-flight session — force-stop. The bulletproofing at the
+            // top of the NEXT start() will recover. Don't enter cleanup
+            // here; if listeningState:stopped fires it'll handle it.
             c.SpeechRecognition.stop().catch(() => {})
             return
           }
@@ -253,12 +299,12 @@ export function useSpeechRecognition(lang) {
           else setError(e?.message || 'speech_error')
           cleanup()
         })
-        // Watchdog: if listeningState never reports `started` within 8s
-        // (plugin warm-up is slower on first cold start than I assumed
-        // when this was 4s), surface that as recognition_failed_to_start.
-        // 8s also covers the OS dialog round-trip on devices that show
-        // the permission consent UI inline.
-        armTimeout(8_000, 'recognition_failed_to_start')
+        // Watchdog: if listeningState never reports `started` within 5s,
+        // assume the OS recognizer is stuck and surface an error so the
+        // user sees they need to tap again (and our cleanup runs).
+        // Previously 8s but that's too long — by the time it fires the
+        // user has already tapped 3 more times.
+        armTimeout(5_000, 'recognition_failed_to_start')
       } catch (e) {
         cleanup()
         setError(e?.message || 'speech_error')
