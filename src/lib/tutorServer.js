@@ -11,28 +11,44 @@
 import { GoogleGenAI, Type } from '@google/genai'
 import { TUTOR_TOOLS, executeTool } from './tutorTools.js'
 
-const SYSTEM_PROMPT = `You are Gemmi, a bowerbird AI tutor in the Gemmi Academy app.
+// Short prompt by design. Gemma 4 26B-A4B (MoE, 4B active) echoes long
+// rule lists back at the user ("However, the prompt says: Write 2 to 4
+// short sentences..."). Stripping the prompt to a paragraph of essentials
+// gives the model less to regurgitate. Grade-level vocabulary calibration
+// and the photo path are now implicit; the tool descriptions in the
+// function schemas already carry their own usage hints, so the model
+// doesn't need redundant rules here.
+// Positive-only persona. Earlier prompts with negative rules ("never list
+// your plan", "don't quote instructions") seeded the meta-thought we were
+// trying to suppress — Gemma 4 would emit "According to the instructions,
+// I should ..." in response. Strip the prompt to a single sentence
+// describing WHO Gemmi is + the format constraint, and let the scrubber
+// handle any residual chain-of-thought.
+const SYSTEM_PROMPT = `You are Gemmi, a kind K-12 tutor talking with a child. Speak to the child in their language in 1–3 short sentences. Use $...$ for inline math and $$...$$ for display math.`
 
-Always reply in the student's preferred language (Қазақша, Русский, or English). Their language and grade are in the state payload pinned to the first user turn.
+// Appended to the system instruction per request. Keeping the per-
+// conversation bits OUT of the user turn array stops Gemma 4 from
+// treating them as a message it should respond to.
+function perStudentContext(s) {
+  const langName = ({ kk: 'Kazakh', ru: 'Russian', en: 'English' }[s?.lang]) || 'English'
+  const grade = Number.isFinite(s?.grade) ? s.grade : 2
+  return `\n\nThe student writes in ${langName} and is at grade level ${grade}. Always reply in ${langName}.`
+}
 
-Calibrate every reply to the student's grade:
-- grade 1 (ages 5 to 8): counting to 20, shapes, single-word answers, picture-driven.
-- grade 2 (ages 8 to 10): multi-digit addition and subtraction, basic fractions.
-- grade 3 (ages 10 to 14): multiplication, percents, simple algebra, basic chemistry.
-- grade 4 (high school, 14 to 18): quadratics, trig, stoichiometry, cellular respiration. Never give a high-schooler "24 × 3" or "5 + 7" — that is grade 1 to 2 material.
-- grade 5 (college, 18+): multivariable calculus, organic synthesis, primary-source history. Collegial tone, no emoji, no cheerleading.
-
-Write 2 to 4 short sentences of plain prose, addressed to the student in second person ("you"). Use commas, colons, and periods. Use $...$ for inline math and $$...$$ for display math. When a student gets something wrong, explain why.
-
-The student can send a photo. If an image comes through, read it carefully and answer about what you see (a textbook page, a math problem on paper, a chemistry diagram, an object the student wants identified). If the image is part of a question, solve it; if it is just a thing they are curious about, explain it at their grade level.
-
-Tools:
-- Personal question -> get_student_state, then reply with two or three real numbers and one next step. The tool result also includes recentStruggles (recent wrong answers) and activeContext (the lesson question they are stuck on right now). Use both: if the student is on a specific lesson question, address that first. If they have a pattern of struggles (e.g. two quadratics missed), name it and offer a path forward.
-- Quiz request -> generate_practice_question, then ask the question, then list the choices on the next line.
-- Topic search -> find_lessons. Open-ended "what next?" -> recommend_next_lesson.
-- Anything else (why, how, explain) -> reply directly without a tool.
-
-Critical: the student_state block is internal context for you. Never restate its fields ("the user's name is...", "the user's language is...", "the question is...", "the image is..."). Address the student directly, in their language, without summarising what you were told.`
+// Localized hint pushed as a fake user turn when the previous response
+// was chain-of-thought. Phrased as if the student is asking a follow-up
+// in their own language. An English meta-instruction was making the
+// Russian-locale model spiral into more English meta-narration.
+function retryHint(s) {
+  switch (s?.lang) {
+    case 'ru':
+      return 'Скажи просто, одной короткой фразой.'
+    case 'kk':
+      return 'Қарапайым тілмен, бір қысқа сөйлеммен айт.'
+    default:
+      return 'Just answer in one short sentence.'
+  }
+}
 
 
 // ---- Translate Anthropic-style tool schemas into Gemini function declarations.
@@ -79,21 +95,25 @@ const GEMINI_TOOLS = [{
 const META_LINE = new RegExp(
   '^[\\s*\\-•·]*' +
   '(' +
-  '(the\\s+(tool|student|user|model|response|format|answer|goal|context|constraint|key|next|persona|reply|draft|prompt|image|photo|picture|question|task))|' +
+  '(the\\s+(tool|student|user|model|response|format|answer|goal|context|constraint|key|next|persona|reply|draft|prompt|image|photo|picture|question|task|child|kid|instructions?|rules?|system))|' +
   "(user'?s?\\s+(name|language|grade|lang|xp|streak|hearts|gems|level|state|question|message|input|image|photo|picture))|" +
   "(student'?s?\\s+(name|language|grade|lang|xp|streak|hearts|gems|level|state))|" +
   '(image|photo|picture)\\s+(shows|contains|depicts|is|seems|appears)|' +
   'now\\s+i|' +
-  "(i\\s+(should|will|need|must|am\\s+going|see|notice|can\\s+see|'?ll))|" +
+  "(i\\s+(should|will|need|must|am\\s+going|see|notice|can(?:not)?|can'?t|could|may|might|am|'?ll|don'?t|do\\s+not|won'?t|will\\s+not|cannot|won\\b))|" +
   "(i\\s*['’`]?\\s*ll\\s+(say|respond|reply|answer|tell|write|explain|just|need|use))|" +
   "(let'?s|let\\s+me)|" +
-  '(actually|basically|essentially|wait|hmm|okay|alright|right|but|so)[,:.]\\s+|' +
+  '(actually|basically|essentially|wait|hmm|okay|alright|right|but|so|however|nonetheless|nevertheless)[,:.]\\s+|' +
   '(response|reply|output|draft)\\s*(plan|draft|should|will|format|version)?\\s*:|' +
   '(final\\s+(answer|reply|response)|my\\s+(reply|response|answer|draft))\\s*:|' +
   '(here\'?s|here\\s+is)\\s+(my|the|a)\\s+(reply|response|answer|draft)\\s*:?|' +
   'looking\\s+at\\s+(the|this|my|their|that)|' +
-  'based\\s+on\\s+(the|this|what)|' +
+  'based\\s+on\\s+(the|this|what|my)|' +
+  'according\\s+to\\s+(the|my|these)|' +
   'this\\s+(is|means|conflict|suggests|tool)|' +
+  '(in\\s+(english|russian|kazakh|kazak|spanish|french|german|chinese)\\b)|' +
+  '(english|russian|kazakh|kazak|spanish|french|german|chinese)\\s*:' +
+  '|' +
   'acknowledge\\b|' +
   'student(\\s+state|s+name|\\s+grade|\\s+language|\\s+xp)|' +
   '(grade|lang|language|xp|streak|hearts|gems|lessons\\s+completed|topic|prompt|option|correct|difficulty|why|format|persona|constraint|context|goal|request|tool|action|plan|emoji|wait|checked|first[,:]?\\s+i|analy|definition of|one short|no em|response should|response plan|draft)\\b' +
@@ -133,9 +153,145 @@ const TRANSITION = [
 // "Newton's first law is universal."
 const NAME_FIELD_LEAK = /(?:the\s+|a\s+|an\s+)?[\p{L}A-Za-z][\p{L}A-Za-z'`-]{0,30}['’](?:s)?\s+(grade|language|lang|name|level|xp|streak|hearts|gems|state)\s+(?:is|level\s+is|are)\s+[^.!?\n]+[.!?\n]?/giu
 
+// Strong-signal phrases — if any of these survive into "cleaned" text we
+// assume the response is chain-of-thought even if it superficially looks
+// like prose. Triggers a retry. These all describe behaviour ABOUT the
+// reply (what I'll do, what the user did, format I'll use) rather than
+// being a reply TO the student.
+const LEAK_SIGNAL = /\b(?:once\s+i\s+have|since\s+(?:the\s+(?:user|student|child)|it'?s|this\s+is|that'?s)|i\s+(?:will\s+answer|should\s+(?:check|call|ask|respond|use|just|note|mention|encourage|format)|need\s+to\s+(?:call|use|respond|answer|note)|don'?t\s+need|do\s+not\s+need|am\s+going\s+to|am\s+supposed|see\s+(?:that|the)|notice\s+(?:that|the)|can\s+see)|the\s+(?:student|user|child)\s+(?:is\s+asking|asked|wants|picked|chose|selected)|they\s+(?:want|are\s+likely|are\s+testing|are\s+confused|felt|provided|asked)|maybe\s+(?:the\s+)?(?:user|student)\s+is|wait,?\s+looking\s+(?:at|back)|previous\s+(?:response|reply|answer|attempt|question|interaction|turn|message|input|exchange|output)\s+(?:was|is|had)|(?:my|the)\s+previous\s+(?:response|reply|answer|attempt|question|interaction|turn|message|input|exchange|output)|the\s+question\s+is|the\s+answer\s+is\s+just|the\s+language\s+is\s+\w+\s*\.?$|^\s*the\s+language\s+is\b|(?:format|response|reply)\s+(?:should|will|must)|(?:my|the)\s+(?:reply|response|answer|draft)\s+(?:should|will|needs|is)|in\s+(?:english|russian|kazakh|kazak|spanish|french|german|chinese)\s*[:,]|i'?ll\s+just|let\s+me\s+(?:think|consider|answer|respond)|the\s+(?:user|student)'?s\s+language\s+is|(?:user|student)'?s\s+(?:prompt|question|message|input|instruction)\s+is|the\s+(?:user|student)'?s\s+(?:prompt|message|input|instruction)|meta-instruction|thought\s+block|persona|gemmi\s+persona|according\s+to\s+(?:the\s+)?(?:instructions?|prompt|rules?|system|guidelines)|the\s+(?:instructions?|prompt|rules?|system|guidelines|directive|persona)\s+say(?:s|ing)?|however,?\s+the\s+(?:user|student|prompt|instructions?))\b/i
+
+// Bare-label preambles Gemma 4 emits when the question is non-English:
+//   "Task: Answer directly in 1-3 short sentences."
+//   "Plan: 1. Acknowledge ..."
+//   "Goal: Help the student understand ..."
+// These are pure self-narration of the system prompt. Strip the entire
+// labelled paragraph (anything up to the next blank line).
+// Bare labels at the start of a line, with up to ~25 chars of filler
+// before the colon. Catches "Response:", "Response in Kazakh:", "Final
+// answer in Russian:", etc. Strips only the LABEL part (the prefix up
+// to and including the colon + a space) — the post-colon content stays,
+// so a label that introduces the real answer ("Final answer: Это 4.")
+// becomes just the answer. If the post-colon content is itself a plan,
+// later passes (numbered-plan strip, META_LINE walker) handle it.
+const BARE_LABEL_LINE = /^(?:final\s+)?(?:task|plan|goal|format|instructions?|constraints?|notes?|reasoning|strategy|approach|persona|question|answer|reply|response|target|context|background|tone|style|language|level|grade|subject|topic|draft|output)(?:\s+(?:in|for|to|of)\s+\w[\w\s-]{0,25})?\s*:\s*/i
+
+// Leading "Answer <quoted text>." pattern — Gemma 4 sometimes drops the
+// colon, prefixing a quoted answer with a bare label. Strip the label
+// and the wrapping quotes.
+const BARE_LABEL_QUOTED = /^(?:final\s+)?(?:answer|reply|response|output)\s+["“'`]([^"”'`\n]{2,500})["”'`]\s*[.!?]?\s*$/i
+
+// "Use $...$ for inline math", "Use LaTeX ...", "Use display math ..."
+// Pure formatting narration — never something the student needs to see.
+const FORMAT_NARRATION = /^use\s+(?:\$|latex|inline\s+math|display\s+math|markdown|format|the\s+(?:format|inline|display))[^\n]*\n?/i
+
+// Leading "Answer:" / "Reply:" / "Response:" label that some non-English
+// turns emit before the real prose. Strip the label but keep the rest.
+const LEADING_ANSWER_LABEL = /^\s*(?:answer|reply|response)\s*:\s*/i
+
 export function stripPlanPreamble(text) {
   // 0) Normalize: drop zero-width chars that occasionally appear.
   let t = (text || '').replace(/[​-‍﻿]/g, '')
+
+  // 0.1) Strip leading meta-narration lines BEFORE checking for a
+  //      numbered-plan block. Gemma 4 frequently emits chain-of-thought
+  //      ("The user is asking...", "I should...", "This is simple...")
+  //      ABOVE the "Plan:" header + numbered list. If we don't peel
+  //      those off first, the numbered-plan detector below won't fire
+  //      (it requires "1." on the FIRST non-blank line).
+  //
+  //      Each line is one of:
+  //        - pure meta line ("I should answer it.") → drop
+  //        - label-prefix line ("Final answer in Russian: Это 4.") → keep
+  //          the post-label content as the new head line
+  //        - real prose line → stop stripping
+  {
+    const headLines = t.split('\n')
+    let h = 0
+    while (h < headLines.length) {
+      const line = headLines[h].trim()
+      if (!line) { h++; continue }
+
+      // Label-prefix line: strip the label, keep the rest as a new head
+      // line and STOP — the content after the label is the real start.
+      const labelMatch = line.match(BARE_LABEL_LINE)
+      if (labelMatch) {
+        const after = line.slice(labelMatch[0].length).trim()
+        if (after.length > 0) {
+          headLines[h] = after
+          break
+        }
+        h++
+        continue
+      }
+
+      // META-prefix line: strip the meta prefix if it ends with a label-
+      // style ":" or a short soft-marker like "Actually, ", keep the
+      // tail; otherwise drop the line entirely as pure narration.
+      const metaMatch = line.match(META_LINE)
+      if (metaMatch) {
+        const after = line.slice(metaMatch[0].length).trim()
+        const isLabel = metaMatch[0].endsWith(':')
+        const isSoft = metaMatch[0].length < 30 && /[,:.]\s*$/.test(metaMatch[0])
+        if (after.length > 6 && (isLabel || isSoft)) {
+          headLines[h] = after
+          break
+        }
+        h++
+        continue
+      }
+
+      if (FORMAT_NARRATION.test(line)) { h++; continue }
+      // Tool-name chatter ("the recommend_next_lesson returned...")
+      if (TOOL_NAME_RE.test(line) && /\b(returned|failed|completed|gave|provided|shows)\b/i.test(line)) { h++; continue }
+      break
+    }
+    if (h > 0) t = headLines.slice(h).join('\n').trim()
+  }
+
+  // 0.2) Numbered-plan block at the (new) head. Gemma 4 sometimes opens with:
+  //      "1. Answer in Russian.\n2. Keep it short.\n3. Use LaTeX ..."
+  //      followed by the real reply (or nothing). If the first two non-
+  //      blank lines both look like "<N>. <text>", strip the contiguous
+  //      numbered block — those lines are *always* self-narration.
+  //      Edge case: the LAST plan item often has the real reply mashed
+  //      onto the same line ("3. Keep it short.Don't worry, mistakes...").
+  //      Detect the "<period><uppercase|$|quote>" hand-off within the
+  //      last plan line and keep everything after it.
+  {
+    const all = t.split('\n')
+    const idxs = []
+    for (let i = 0; i < all.length; i++) if (all[i].trim()) idxs.push(i)
+    if (idxs.length >= 2 &&
+        /^\s*1\.\s+\S/.test(all[idxs[0]]) &&
+        /^\s*2\.\s+\S/.test(all[idxs[1]])) {
+      let k = 0
+      let lastBlockIdx = idxs[0]
+      while (k < idxs.length && /^\s*\d+\.\s+\S/.test(all[idxs[k]])) {
+        lastBlockIdx = idxs[k]
+        k++
+      }
+      const lastLine = all[lastBlockIdx]
+      // Try to split mashed plan-item + answer on the last plan line.
+      // Pattern: "<N>. <plan text up to first .!?> <hand-off>"
+      // Hand-off = "[.!?][A-Z|Cyrillic|$|"|emoji-leader]" with no space.
+      const mashed = lastLine.match(
+        /^\s*\d+\.\s+[^.!?\n]+[.!?]\s*([A-ZА-ЯҚҒҰҮӘӨҺІ\$"À-ɏ][^\n]*)$/
+      )
+      const rest = all.slice(lastBlockIdx + 1).join('\n').trim()
+      t = mashed
+        ? (mashed[1] + (rest ? '\n' + rest : '')).trim()
+        : rest
+    }
+  }
+
+  // 0.3) Strip bare-label preamble paragraphs ("Task: ...", "Plan: ...")
+  //      and pure formatting narration ("Use $...$ for inline math").
+  //      Apply repeatedly until no more matches at the head.
+  for (let guard = 0; guard < 6; guard++) {
+    const before = t.length
+    t = t.replace(BARE_LABEL_LINE, '').replace(FORMAT_NARRATION, '').trimStart()
+    if (t.length === before) break
+  }
 
   // 0.4) Strip every "<Name>'s grade is …", "<Name>'s language is …"
   //      sentence anywhere in the lead-in. These are pure state leaks
@@ -152,7 +308,21 @@ export function stripPlanPreamble(text) {
     }
   }
 
-  // 1) The "draft in quotes followed by the same sentence unquoted" pattern.
+  // 1) "<draft>" ( parenthesized English translation ) [optional final answer]
+  //    Gemma 4 sometimes drafts in the target language, adds an English
+  //    translation in parens for "review", and optionally emits the
+  //    final reply. Two variants:
+  //      - "X" (translation) Y → keep Y (final answer wins)
+  //      - "X" (translation)   → keep X (no separate final; X is it)
+  const draftWithTail = t.match(/^[\s*\-•·]*"([^"]{6,1200})"\s*\([^)]{4,500}\)\s*([^"][\s\S]*?)\s*$/s)
+  if (draftWithTail && draftWithTail[2].trim().length > 8) {
+    t = draftWithTail[2].trim()
+  } else {
+    const draftNoTail = t.match(/^[\s*\-•·]*"([^"]{6,1200})"\s*\([^)]{4,500}\)\s*$/s)
+    if (draftNoTail) t = draftNoTail[1].trim()
+  }
+
+  // 1.5) The "draft in quotes followed by the same sentence unquoted" pattern.
   //    Gemma 4 sometimes emits: `"Photosynthesis is..."Photosynthesis is...`
   //    Collapse the duplicate; prefer the longer / unquoted version.
   const dup = t.match(/^[\s*\-•·]*"([^"]{8,1200})"\s*([^"]+?)\s*$/s)
@@ -234,10 +404,17 @@ export function stripPlanPreamble(text) {
   // Strip leading bullet glyphs from a single-line response so the user sees
   // a normal sentence instead of "*   Answer."
   out = out.replace(/^[\s*\-•·]+/, '').trim()
+  // Strip a leading "Answer:" / "Reply:" / "Response:" label if one survived.
+  out = out.replace(LEADING_ANSWER_LABEL, '').trim()
+  // Handle the no-colon variant: `Answer "X".` → `X`
+  const bareLabelQuoted = out.match(BARE_LABEL_QUOTED)
+  if (bareLabelQuoted) out = bareLabelQuoted[1].trim()
 
   // 5) Final dedupe pass: if the cleaned text is the same sentence repeated
   //    back-to-back (e.g. `X.X.` or `X. X.`), collapse to one copy.
-  const halfMatch = out.match(/^(.{20,500}[.!?])\s*\1$/s)
+  //    Min length 10 (was 20) to catch short math replies like
+  //    "$2 + 2 = 4$ болады!$2 + 2 = 4$ болады!" — 19 chars per half.
+  const halfMatch = out.match(/^(.{10,500}[.!?])\s*\1$/s)
   if (halfMatch) out = halfMatch[1].trim()
 
   // 6) Last-resort fallback: nothing survived the filter. Find the first
@@ -295,23 +472,18 @@ export async function handleTutorRequest(req, res) {
   // Gemini's roles are 'user' and 'model'; assistant maps to 'model'.
   // Tool results live in user-role function-response parts.
   //
-  // We previously pinned the full studentState JSON as a fake first user
-  // turn so the model had per-conversation context. Gemma 4 has a strong
-  // habit of restating any structured preamble verbatim — replies like
-  // "freddy's grade is 2. freddy's language is english." were the
-  // student's actual `profile.name` getting echoed back. The model
-  // doesn't need the name to write a reply; it needs the language to
-  // know what to write in, and the grade to calibrate vocabulary. Put
-  // those two facts in ONE inconspicuous sentence and skip the rest;
-  // the get_student_state tool retrieves name / XP / streak / struggles
-  // on demand whenever a reply actually requires them.
-  const langName = ({ kk: 'Kazakh', ru: 'Russian', en: 'English' }[studentState?.lang]) || 'English'
-  const gradeNum = Number.isFinite(studentState?.grade) ? studentState.grade : 2
+  // No pre-conversation user turn at all. Two earlier attempts both
+  // failed:
+  //   (1) Full studentState JSON as a fake user turn → Gemma 4 echoed
+  //       it verbatim ("freddy's grade is 2. freddy's language is
+  //       english.")
+  //   (2) Slim "(Reply in English. I'm at grade level 2.)" as a fake
+  //       user turn → Gemma 4 treated it as a user *message* and
+  //       answered it (echoing system-prompt text in response).
+  // The fix is to keep ALL per-conversation context inside the system
+  // instruction. The systemInstruction string is set per-request below
+  // with the runtime language + grade substituted in.
   const contents = []
-  contents.push({
-    role: 'user',
-    parts: [{ text: `(Reply in ${langName}. I'm at grade level ${gradeNum}.)` }],
-  })
   for (const m of messages) {
     const role = m.role === 'assistant' ? 'model' : 'user'
     const parts = []
@@ -346,15 +518,28 @@ export async function handleTutorRequest(req, res) {
     // bullet drafts) into the visible reply in ~half of turns. The MoE
     // variant is dramatically tidier; the strip-preamble scrubber later
     // in this file handles the residual cases.
+    //
+    // Cap retries from the leak-detection path to 2 — if we still get
+    // chain-of-thought after that, deliver what we have rather than
+    // looping forever on a flaky turn.
+    let cleanRetries = 0
     for (let turn = 0; turn < 6; turn++) {
       const stream = await client.models.generateContentStream({
         model: 'gemma-4-26b-a4b-it',
         contents,
         config: {
-          systemInstruction: SYSTEM_PROMPT,
+          // Per-request system instruction with the runtime lang + grade
+          // appended. This is the safe place to put per-conversation
+          // context — Gemma 4 treats systemInstruction differently from
+          // user turns and is much less prone to echoing it back.
+          systemInstruction: SYSTEM_PROMPT + perStudentContext(studentState),
           tools: GEMINI_TOOLS,
           maxOutputTokens: 1500,
-          temperature: 0.7,
+          // 0.3 (was 0.7) — lower temperature halves the chain-of-thought
+          // leak rate on Gemma 4 26B-A4B in practice. The reply is still
+          // varied enough to feel natural without becoming a planning
+          // narration.
+          temperature: 0.3,
         },
       })
 
@@ -394,7 +579,41 @@ export async function handleTutorRequest(req, res) {
 
       if (textBuffer.trim() && pendingTools.length === 0) {
         const cleaned = stripPlanPreamble(textBuffer)
-        if (cleaned) write({ type: 'delta', text: cleaned })
+        const looksLikeLeak = cleaned && LEAK_SIGNAL.test(cleaned)
+        if (cleaned && !looksLikeLeak) {
+          write({ type: 'delta', text: cleaned })
+        } else if (cleanRetries < 2) {
+          // Either the scrubber stripped everything OR strong-signal
+          // chain-of-thought phrases survived ("Once I have the state,
+          // I will answer..."). Retry from a clean slate — do NOT push
+          // the leaking model turn back into `contents`. Re-running with
+          // the prior leak in context produced second-order leaks like
+          // "The previous answer was '...'" — Gemma 4 explains itself
+          // when it sees its own narration. Capped at 2 retries.
+          //
+          // The retry message is localized — an English "speak in my
+          // language" hint causes Russian-speaking Gemma 4 to lapse into
+          // English meta-narration about how it should reply, defeating
+          // the purpose. The localized message reads like the child
+          // asking a follow-up, appended onto the existing user turn so
+          // it counts as part of the original question rather than a
+          // separate message.
+          cleanRetries++
+          // Append the hint to the LAST user turn rather than adding a
+          // new one. Two consecutive user turns confuse Gemma 4 — it
+          // treats the second as a meta-instruction and replies to it.
+          const lastUser = [...contents].reverse().find(c => c.role === 'user')
+          if (lastUser) {
+            lastUser.parts.push({ text: ' ' + retryHint(studentState) })
+          } else {
+            contents.push({ role: 'user', parts: [{ text: retryHint(studentState) }] })
+          }
+          continue
+        } else if (cleaned) {
+          // Out of retries — deliver whatever survived the scrubber so
+          // the student sees something rather than a stuck stream.
+          write({ type: 'delta', text: cleaned })
+        }
       }
 
       contents.push({ role: 'model', parts: modelParts })
