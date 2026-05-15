@@ -95,7 +95,7 @@ const GEMINI_TOOLS = [{
 const META_LINE = new RegExp(
   '^[\\s*\\-•·]*' +
   '(' +
-  '(the\\s+(tool|student|user|model|response|format|answer|goal|context|constraint|key|next|persona|reply|draft|prompt|image|photo|picture|question|task|child|kid|instructions?|rules?|system))|' +
+  '(the\\s+(tool|student|user|model|response|format|answer|goal|context|constraint|key|next|persona|reply|draft|prompt|image|photo|picture|question|task|child|kid|instructions?|rules?|system|topic|subject|grade|conversation))|' +
   "(user'?s?\\s+(name|language|grade|lang|xp|streak|hearts|gems|level|state|question|message|input|image|photo|picture))|" +
   "(student'?s?\\s+(name|language|grade|lang|xp|streak|hearts|gems|level|state))|" +
   '(image|photo|picture)\\s+(shows|contains|depicts|is|seems|appears)|' +
@@ -158,7 +158,7 @@ const NAME_FIELD_LEAK = /(?:the\s+|a\s+|an\s+)?[\p{L}A-Za-z][\p{L}A-Za-z'`-]{0,3
 // like prose. Triggers a retry. These all describe behaviour ABOUT the
 // reply (what I'll do, what the user did, format I'll use) rather than
 // being a reply TO the student.
-const LEAK_SIGNAL = /\b(?:once\s+i\s+have|since\s+(?:the\s+(?:user|student|child)|it'?s|this\s+is|that'?s)|i\s+(?:will\s+answer|should\s+(?:check|call|ask|respond|use|just|note|mention|encourage|format)|need\s+to\s+(?:call|use|respond|answer|note)|don'?t\s+need|do\s+not\s+need|am\s+going\s+to|am\s+supposed|see\s+(?:that|the)|notice\s+(?:that|the)|can\s+see)|the\s+(?:student|user|child)\s+(?:is\s+asking|asked|wants|picked|chose|selected)|they\s+(?:want|are\s+likely|are\s+testing|are\s+confused|felt|provided|asked)|maybe\s+(?:the\s+)?(?:user|student)\s+is|wait,?\s+looking\s+(?:at|back)|previous\s+(?:response|reply|answer|attempt|question|interaction|turn|message|input|exchange|output)\s+(?:was|is|had)|(?:my|the)\s+previous\s+(?:response|reply|answer|attempt|question|interaction|turn|message|input|exchange|output)|the\s+question\s+is|the\s+answer\s+is\s+just|the\s+language\s+is\s+\w+\s*\.?$|^\s*the\s+language\s+is\b|(?:format|response|reply)\s+(?:should|will|must)|(?:my|the)\s+(?:reply|response|answer|draft)\s+(?:should|will|needs|is)|in\s+(?:english|russian|kazakh|kazak|spanish|french|german|chinese)\s*[:,]|i'?ll\s+just|let\s+me\s+(?:think|consider|answer|respond)|the\s+(?:user|student)'?s\s+language\s+is|(?:user|student)'?s\s+(?:prompt|question|message|input|instruction)\s+is|the\s+(?:user|student)'?s\s+(?:prompt|message|input|instruction)|meta-instruction|thought\s+block|persona|gemmi\s+persona|according\s+to\s+(?:the\s+)?(?:instructions?|prompt|rules?|system|guidelines)|the\s+(?:instructions?|prompt|rules?|system|guidelines|directive|persona)\s+say(?:s|ing)?|however,?\s+the\s+(?:user|student|prompt|instructions?))\b/i
+const LEAK_SIGNAL = /\b(?:once\s+i\s+have|since\s+(?:the\s+(?:user|student|child)|it'?s|this\s+is|that'?s|i\s+am|i'?m)|i\s+(?:will\s+answer|should\s+(?:check|call|ask|respond|use|just|note|mention|encourage|format)|need\s+to\s+(?:call|use|respond|answer|note)|don'?t\s+need|do\s+not\s+need|am\s+going\s+to|am\s+supposed|see\s+(?:that|the)|notice\s+(?:that|the)|can\s+see)|the\s+(?:student|user|child)\s+(?:is\s+asking|asked|wants|picked|chose|selected|is\s+(?:grade|in\s+grade|at\s+grade))|grade\s+\d+\s*\(college|college\s*\/\s*adult|high[\s-]?school\)|they\s+(?:want|are\s+likely|are\s+testing|are\s+confused|felt|provided|asked)|maybe\s+(?:the\s+)?(?:user|student)\s+is|wait,?\s+looking\s+(?:at|back)|previous\s+(?:response|reply|answer|attempt|question|interaction|turn|message|input|exchange|output)\s+(?:was|is|had)|(?:my|the)\s+previous\s+(?:response|reply|answer|attempt|question|interaction|turn|message|input|exchange|output)|the\s+question\s+is|the\s+answer\s+is\s+just|the\s+language\s+is\s+\w+\s*\.?$|^\s*the\s+language\s+is\b|(?:format|response|reply)\s+(?:should|will|must)|(?:my|the)\s+(?:reply|response|answer|draft)\s+(?:should|will|needs|is)|in\s+(?:english|russian|kazakh|kazak|spanish|french|german|chinese)\s*[:,]|i'?ll\s+just|let\s+me\s+(?:think|consider|answer|respond)|the\s+(?:user|student)'?s\s+language\s+is|(?:user|student)'?s\s+(?:prompt|question|message|input|instruction)\s+is|the\s+(?:user|student)'?s\s+(?:prompt|message|input|instruction)|meta-instruction|thought\s+block|persona|gemmi\s+persona|according\s+to\s+(?:the\s+)?(?:instructions?|prompt|rules?|system|guidelines)|the\s+(?:instructions?|prompt|rules?|system|guidelines|directive|persona)\s+say(?:s|ing)?|however,?\s+the\s+(?:user|student|prompt|instructions?))\b/i
 
 // Bare-label preambles Gemma 4 emits when the question is non-English:
 //   "Task: Answer directly in 1-3 short sentences."
@@ -173,7 +173,7 @@ const LEAK_SIGNAL = /\b(?:once\s+i\s+have|since\s+(?:the\s+(?:user|student|child
 // so a label that introduces the real answer ("Final answer: Это 4.")
 // becomes just the answer. If the post-colon content is itself a plan,
 // later passes (numbered-plan strip, META_LINE walker) handle it.
-const BARE_LABEL_LINE = /^(?:final\s+)?(?:task|plan|goal|format|instructions?|constraints?|notes?|reasoning|strategy|approach|persona|question|answer|reply|response|target|context|background|tone|style|language|level|grade|subject|topic|draft|output)(?:\s+(?:in|for|to|of)\s+\w[\w\s-]{0,25})?\s*:\s*/i
+const BARE_LABEL_LINE = /^(?:final\s+)?(?:task|plan|goal|format|instructions?|constraints?|notes?|reasoning|strategy|approach|persona|question|answer|reply|response|target|context|background|tone|style|language|level|grade|subject|topic|draft|output|explanation|simplified|summary|definition|causes?|reasons?|key\s+points?|main\s+ideas?)(?:\s+(?:in|for|to|of|on|about)\s+\w[\w\s-]{0,30})?\s*:\s*/i
 
 // Leading "Answer <quoted text>." pattern — Gemma 4 sometimes drops the
 // colon, prefixing a quoted answer with a bare label. Strip the label
@@ -386,14 +386,16 @@ export function stripPlanPreamble(text) {
     break
   }
   const start = i
-  // 4) Stop at the first bullet, meta line, or "Word: rest" header AFTER the
-  //    answer body started. The system prompt forbids bullets, so any bullet
-  //    line after the first prose sentence is planning-trace leakage.
+  // 4) Stop at the first bullet, meta line, bare-label preamble ("Explanation:",
+  //    "Causes:"), or "Word: rest" header AFTER the answer body started. Real
+  //    replies don't contain a labeled second section — those are model-side
+  //    planning traces leaking through.
   let end = lines.length
   for (let j = start + 1; j < lines.length; j++) {
     const line = lines[j].trim()
     if (!line) continue
     if (META_LINE.test(line)) { end = j; break }
+    if (BARE_LABEL_LINE.test(line)) { end = j; break }
     if (TOOL_NAME_RE.test(line)) { end = j; break }
     if (/^[\s*\-•·]+\w[^:]{0,40}:\s+/.test(line)) { end = j; break }
     if (/^[*\-•·]\s+/.test(line)) { end = j; break }

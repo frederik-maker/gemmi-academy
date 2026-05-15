@@ -65,7 +65,12 @@ export function useSpeechRecognition(lang) {
   const onFinalRef = useRef(null)
   const recogRef = useRef(null)
   const finalRef = useRef('')
-  const nativeListenerRef = useRef(null)
+  // Holds every native-plugin listener handle from the most recent start()
+  // call. Bulk-removed at the top of the next start() and on unmount so
+  // listeners from an aborted previous session can't double-fire when a
+  // new session begins. (Was a single handle ref; rapid double-taps on
+  // the mic button leaked the partialResults/result listeners.)
+  const nativeListenersRef = useRef([])
   const timeoutRef = useRef(null)
 
   // Probe native availability once.
@@ -102,8 +107,8 @@ export function useSpeechRecognition(lang) {
     const c = await cap()
     if (c.native && c.SpeechRecognition) {
       try { await c.SpeechRecognition.stop() } catch {}
-      try { nativeListenerRef.current?.remove?.() } catch {}
-      nativeListenerRef.current = null
+      for (const l of nativeListenersRef.current) { try { l?.remove?.() } catch {} }
+      nativeListenersRef.current = []
     }
   }, [])
 
@@ -164,10 +169,14 @@ export function useSpeechRecognition(lang) {
       } catch { /* getSupportedLanguages not available — try anyway */ }
 
       // If a previous session is still running (start never resolved cleanly,
-      // or the user tapped twice fast), force-stop it before starting.
+      // or the user tapped twice fast), force-stop it and remove ALL
+      // listeners from the previous session. Removing just the head handle
+      // (the way an older version of this code did) left partialResults +
+      // result listeners attached, causing double-fire when the second
+      // start() registered its own.
       try { await c.SpeechRecognition.stop() } catch { /* not running, fine */ }
-      try { nativeListenerRef.current?.remove?.() } catch {}
-      nativeListenerRef.current = null
+      for (const l of nativeListenersRef.current) { try { l?.remove?.() } catch {} }
+      nativeListenersRef.current = []
 
       // Three listener channels — different builds of the underlying
       // plugin emit final transcripts via different events:
@@ -178,7 +187,6 @@ export function useSpeechRecognition(lang) {
       //   • result: some plugin versions emit a {matches:[...]} on
       //     end-of-speech. We accept it as an additional source of the
       //     final transcript.
-      const stateListeners = []
       let cleanedUp = false
       const cleanup = () => {
         if (cleanedUp) return         // idempotent — listeningState:stopped
@@ -186,9 +194,8 @@ export function useSpeechRecognition(lang) {
         cleanedUp = true
         if (timeoutRef.current) clearTimeout(timeoutRef.current)
         setListening(false)
-        for (const l of stateListeners) { try { l?.remove?.() } catch {} }
-        stateListeners.length = 0
-        nativeListenerRef.current = null
+        for (const l of nativeListenersRef.current) { try { l?.remove?.() } catch {} }
+        nativeListenersRef.current = []
         const text = finalRef.current.trim()
         if (text && onFinalRef.current) {
           // Defer the callback so React's state flush sees listening=false
@@ -224,8 +231,7 @@ export function useSpeechRecognition(lang) {
           const txt = (r?.matches || [])[0]
           if (txt) finalRef.current = txt
         }).catch(() => null)
-        stateListeners.push(lA, lB, lC)
-        nativeListenerRef.current = lA  // legacy single-handle ref for stop()
+        nativeListenersRef.current = [lA, lB, lC].filter(Boolean)
 
         c.SpeechRecognition.start({
           language: pickSpeechLang(lang),
@@ -311,7 +317,8 @@ export function useSpeechRecognition(lang) {
   useEffect(() => () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
     try { recogRef.current?.abort() } catch {}
-    try { nativeListenerRef.current?.remove?.() } catch {}
+    for (const l of nativeListenersRef.current) { try { l?.remove?.() } catch {} }
+    nativeListenersRef.current = []
   }, [])
 
   return { supported, listening, interim, error, start, stop }
