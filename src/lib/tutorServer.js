@@ -640,22 +640,53 @@ export async function handleTutorRequest(req, res) {
         if (cleaned && !looksLikeLeak && !wrongLang) {
           write({ type: 'delta', text: cleaned })
         } else if (cleanRetries < 2) {
-          // SILENT retry — don't touch contents, don't inject any hint
-          // text. Earlier retry shapes (localized "answer simply" hint
-          // appended to the user turn) got echoed back verbatim
-          // ("They also specified a constraint: 'Just answer in one
-          // short sentence.'"). With no modification, the next API call
-          // is identical and Gemma 4's stochasticity usually produces a
-          // cleaner output. Capped at 2 retries.
+          // Silent retry — don't touch contents, don't inject any hint.
+          // Earlier retry shapes (localized "answer simply" hint
+          // appended to the user turn) got echoed back verbatim. With
+          // no modification, the next API call is identical and Gemma 4's
+          // stochasticity usually produces a cleaner output.
           cleanRetries++
           continue
-        } else if (cleaned && !looksLikeLeak) {
-          // Out of retries. Only emit if the surviving text doesn't
-          // still look like a leak. If we exhausted retries AND every
-          // attempt was leaky, emit nothing — the user can re-ask. Far
-          // better than streaming "the perSubject data shows..." into
-          // the chat after 3 model attempts.
-          write({ type: 'delta', text: cleaned })
+        } else {
+          // Out of regular retries and still leaking. Last resort:
+          // ask Gemma 4 to REWRITE its own verbose scratch work as a
+          // clean reply. This is a separate API call with no tools and
+          // a tight prompt that just says "extract the final answer
+          // from the draft below". Empirically this almost always
+          // produces a usable reply — the rewriter has nothing to plan
+          // (the planning is already done in the draft) and no tool
+          // surface to narrate. ~1s extra latency, only on the rare
+          // leak-after-2-retries case.
+          const draft = textBuffer.trim()
+          if (draft) {
+            const lang = studentState?.lang
+            const langName = ({ kk: 'Kazakh', ru: 'Russian', en: 'English' }[lang]) || 'English'
+            const rewriteSystem = `You are a copy editor. Below is a verbose draft response from a tutor. Extract just the final answer — 1 to 2 short sentences in ${langName}. Strip all planning text, bullet checklists, references to "the student" or "the prompt", and any meta-commentary. Output only the answer text, nothing else.`
+            try {
+              const rw = await client.models.generateContentStream({
+                model: 'gemma-4-26b-a4b-it',
+                contents: [{ role: 'user', parts: [{ text: 'Draft:\n\n' + draft }] }],
+                config: {
+                  systemInstruction: rewriteSystem,
+                  maxOutputTokens: 400,
+                  temperature: 0.2,
+                },
+              })
+              let rwBuf = ''
+              for await (const ch of rw) {
+                const parts = ch.candidates?.[0]?.content?.parts || []
+                for (const p of parts) if (p.text) rwBuf += p.text
+              }
+              const rwClean = stripPlanPreamble(rwBuf)
+              if (rwClean && !LEAK_SIGNAL.test(rwClean)) {
+                write({ type: 'delta', text: rwClean })
+              }
+              // Don't push the rewriter turn into `contents` — it's
+              // out-of-band and would confuse subsequent turns.
+            } catch (_) {
+              // Rewriter itself failed (API error, etc.) — emit nothing.
+            }
+          }
         }
       }
 
