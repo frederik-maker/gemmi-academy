@@ -11,19 +11,18 @@
 import { GoogleGenAI, Type } from '@google/genai'
 import { TUTOR_TOOLS, executeTool } from './tutorTools.js'
 
-// Short prompt by design. Gemma 4 26B-A4B (MoE, 4B active) echoes long
-// rule lists back at the user ("However, the prompt says: Write 2 to 4
-// short sentences..."). Stripping the prompt to a paragraph of essentials
-// gives the model less to regurgitate. Grade-level vocabulary calibration
-// and the photo path are now implicit; the tool descriptions in the
-// function schemas already carry their own usage hints, so the model
-// doesn't need redundant rules here.
-// Positive-only persona. Earlier prompts with negative rules ("never list
-// your plan", "don't quote instructions") seeded the meta-thought we were
-// trying to suppress — Gemma 4 would emit "According to the instructions,
-// I should ..." in response. Strip the prompt to a single sentence
-// describing WHO Gemmi is + the format constraint, and let the scrubber
-// handle any residual chain-of-thought.
+// Empirical balance. Tested:
+//   - Full constraints ("answer in X language, in 1-3 sentences, use $...$") →
+//     model paraphrases the constraints back at the user
+//     ("Answer the question directly in one short sentence. 2+2=4!")
+//   - No system prompt at all → model loops on retry-hint phrases, replies
+//     in wrong language, no persona
+//   - Pure persona ("You are Gemmi, a friendly tutor.") → model thinks aloud
+//     even more without format guidance ("'2+2' is a universal question.")
+// Conclusion: keep the constraints. The scrubber handles paraphrased leaks.
+// A short, paragraph-style prompt with persona + format gives the lowest
+// observed leak rate (~8-10%). Negative rules ("don't say X") consistently
+// make leaks worse — never add them.
 const SYSTEM_PROMPT = `You are Gemmi, a kind K-12 tutor talking with a child. Speak to the child in their language in 1–3 short sentences. Use $...$ for inline math and $$...$$ for display math.`
 
 // Appended to the system instruction per request. Keeping the per-
@@ -522,9 +521,6 @@ export async function handleTutorRequest(req, res) {
     // variant is dramatically tidier; the strip-preamble scrubber later
     // in this file handles the residual cases.
     //
-    // Cap retries from the leak-detection path to 2 — if we still get
-    // chain-of-thought after that, deliver what we have rather than
-    // looping forever on a flaky turn.
     let cleanRetries = 0
     for (let turn = 0; turn < 6; turn++) {
       const stream = await client.models.generateContentStream({
@@ -535,6 +531,12 @@ export async function handleTutorRequest(req, res) {
           // appended. This is the safe place to put per-conversation
           // context — Gemma 4 treats systemInstruction differently from
           // user turns and is much less prone to echoing it back.
+          // perStudentContext gives the model the lang+grade up front.
+          // Without it, the model second-guesses ("Even though they are
+          // grade 2, this is a very basic question..." then no answer).
+          // The NAME_FIELD_LEAK regex in the scrubber + LEAK_SIGNAL catch
+          // the "freddy's grade is 2" echoes that perStudentContext can
+          // produce.
           systemInstruction: SYSTEM_PROMPT + perStudentContext(studentState),
           tools: GEMINI_TOOLS,
           maxOutputTokens: 1500,
@@ -586,35 +588,17 @@ export async function handleTutorRequest(req, res) {
         if (cleaned && !looksLikeLeak) {
           write({ type: 'delta', text: cleaned })
         } else if (cleanRetries < 2) {
-          // Either the scrubber stripped everything OR strong-signal
-          // chain-of-thought phrases survived ("Once I have the state,
-          // I will answer..."). Retry from a clean slate — do NOT push
-          // the leaking model turn back into `contents`. Re-running with
-          // the prior leak in context produced second-order leaks like
-          // "The previous answer was '...'" — Gemma 4 explains itself
-          // when it sees its own narration. Capped at 2 retries.
-          //
-          // The retry message is localized — an English "speak in my
-          // language" hint causes Russian-speaking Gemma 4 to lapse into
-          // English meta-narration about how it should reply, defeating
-          // the purpose. The localized message reads like the child
-          // asking a follow-up, appended onto the existing user turn so
-          // it counts as part of the original question rather than a
-          // separate message.
+          // SILENT retry — don't touch contents, don't inject any hint
+          // text. Earlier retry shapes (localized "answer simply" hint
+          // appended to the user turn) got echoed back verbatim
+          // ("They also specified a constraint: 'Just answer in one
+          // short sentence.'"). With no modification, the next API call
+          // is identical and Gemma 4's stochasticity usually produces a
+          // cleaner output. Capped at 2 retries; if all three flop,
+          // emit what we have.
           cleanRetries++
-          // Append the hint to the LAST user turn rather than adding a
-          // new one. Two consecutive user turns confuse Gemma 4 — it
-          // treats the second as a meta-instruction and replies to it.
-          const lastUser = [...contents].reverse().find(c => c.role === 'user')
-          if (lastUser) {
-            lastUser.parts.push({ text: ' ' + retryHint(studentState) })
-          } else {
-            contents.push({ role: 'user', parts: [{ text: retryHint(studentState) }] })
-          }
           continue
         } else if (cleaned) {
-          // Out of retries — deliver whatever survived the scrubber so
-          // the student sees something rather than a stuck stream.
           write({ type: 'delta', text: cleaned })
         }
       }
