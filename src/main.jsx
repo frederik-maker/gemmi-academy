@@ -20,7 +20,14 @@ import 'katex/dist/katex.min.css'
 import { bootSmokeTest } from './lib/nativeBoot.js'
 import { setupPiperTts } from './lib/piperTts.js'
 import { setupNativeTutor } from './lib/nativeTutor.js'
+import { reapStaleAttemptMarkers } from './lib/voice.js'
 
+// Reap any Piper "speak in progress" markers left behind by a prior boot.
+// If a marker survived a relaunch, sherpa-onnx SIGSEGV'd during that
+// utterance — flag the lang as broken so we skip Piper until reinstall.
+// Must run BEFORE setupPiperTts so the broken-lang check is in place
+// before any UI can trigger speak().
+reapStaleAttemptMarkers()
 // On the Capacitor APK: ping the Kotlin Hello plugin once and log the
 // round-trip result. No-op on web. Proves the native bridge is alive
 // before any real (heavy) on-device plugin tries to use the same wiring.

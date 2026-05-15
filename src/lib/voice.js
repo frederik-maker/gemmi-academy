@@ -387,15 +387,55 @@ function ensureVoices() {
   return _voicesPromise
 }
 
+// Crash-survival flags. sherpa-onnx can SIGSEGV during synthesize() if a
+// downloaded voice model is structurally invalid; the JVM dies, the app
+// dies, and on next launch we'd try again and crash again. We persist a
+// per-lang "attempt" marker in localStorage BEFORE every speak() — if it
+// survives across an app restart, we know that lang crashed Piper and we
+// flag it broken. Broken langs skip Piper entirely until the user
+// reinstalls the voice. Markers are checked + cleaned in main.jsx on
+// boot before any UI mounts.
+const ATTEMPT_KEY = (lang) => `gemmi-piper-attempt:${lang}`
+const BROKEN_KEY = (lang) => `gemmi-piper-broken:${lang}`
+
+export function reapStaleAttemptMarkers() {
+  if (typeof localStorage === 'undefined') return
+  // Any "attempt" key that survives a fresh boot means Piper crashed the
+  // process mid-speak. Mark that lang broken and clear the marker.
+  for (const lang of ['kk', 'ru', 'en']) {
+    if (localStorage.getItem(ATTEMPT_KEY(lang))) {
+      localStorage.setItem(BROKEN_KEY(lang), '1')
+      localStorage.removeItem(ATTEMPT_KEY(lang))
+    }
+  }
+}
+
+export function clearPiperBroken(lang) {
+  if (typeof localStorage === 'undefined') return
+  localStorage.removeItem(BROKEN_KEY(lang))
+}
+
 async function tryPiperSpeak(text, lang) {
   const piper = typeof window !== 'undefined' ? window.PiperTts : null
   if (!piper) return { ok: false, reason: 'no_piper' }
+  // Skip Piper if a prior session SIGSEGV'd on this lang.
+  if (typeof localStorage !== 'undefined' && localStorage.getItem(BROKEN_KEY(lang))) {
+    return { ok: false, reason: 'piper_broken_skip' }
+  }
   try {
     const st = await piper.voiceState(lang)
     if (st?.state !== 'ready' && st?.state !== 'bundled') {
       return { ok: false, reason: `voice_${st?.state || 'missing'}` }
     }
-    await piper.speak({ text, lang })
+    // Plant the crash-survival marker BEFORE invoking native. localStorage
+    // writes are synchronous and durable, so even a SIGSEGV mid-speak
+    // leaves the marker behind for the next boot to see.
+    if (typeof localStorage !== 'undefined') localStorage.setItem(ATTEMPT_KEY(lang), String(Date.now()))
+    try {
+      await piper.speak({ text, lang })
+    } finally {
+      if (typeof localStorage !== 'undefined') localStorage.removeItem(ATTEMPT_KEY(lang))
+    }
     return { ok: true }
   } catch (e) {
     return { ok: false, reason: e?.message || 'piper_speak_failed' }

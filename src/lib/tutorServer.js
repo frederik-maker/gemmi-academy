@@ -96,6 +96,7 @@ const META_LINE = new RegExp(
   '^[\\s*\\-•·]*' +
   '(' +
   '(the\\s+(tool|student|user|model|response|format|answer|goal|context|constraint|key|next|persona|reply|draft|prompt|image|photo|picture|question|task|child|kid|instructions?|rules?|system|topic|subject|grade|conversation))|' +
+  '(for\\s+(?:a\\s+)?(?:\\d+(?:st|nd|rd|th)?\\s+)?(?:grader|grade|kid|child|student|adult|beginner))|' +
   "(user'?s?\\s+(name|language|grade|lang|xp|streak|hearts|gems|level|state|question|message|input|image|photo|picture))|" +
   "(student'?s?\\s+(name|language|grade|lang|xp|streak|hearts|gems|level|state))|" +
   '(image|photo|picture)\\s+(shows|contains|depicts|is|seems|appears)|' +
@@ -173,7 +174,7 @@ const LEAK_SIGNAL = /\b(?:once\s+i\s+have|since\s+(?:the\s+(?:user|student|child
 // so a label that introduces the real answer ("Final answer: Это 4.")
 // becomes just the answer. If the post-colon content is itself a plan,
 // later passes (numbered-plan strip, META_LINE walker) handle it.
-const BARE_LABEL_LINE = /^(?:final\s+)?(?:task|plan|goal|format|instructions?|constraints?|notes?|reasoning|strategy|approach|persona|question|answer|reply|response|target|context|background|tone|style|language|level|grade|subject|topic|draft|output|explanation|simplified|summary|definition|causes?|reasons?|key\s+points?|main\s+ideas?)(?:\s+(?:in|for|to|of|on|about)\s+\w[\w\s-]{0,30})?\s*:\s*/i
+const BARE_LABEL_LINE = /^(?:final|refined|revised|improved|better|simpler|simplified|first|second|alternative|alt|version|v\d+|draft)?\s*(?:task|plan|goal|format|instructions?|constraints?|notes?|reasoning|strategy|approach|persona|question|answer|reply|response|target|context|background|tone|style|language|level|grade|subject|topic|draft|output|explanation|simplified|summary|definition|causes?|reasons?|key\s+points?|main\s+ideas?|version)(?:\s+(?:in|for|to|of|on|about)\s+\w[\w\s-]{0,30})?\s*\d*\s*:\s*/i
 
 // Leading "Answer <quoted text>." pattern — Gemma 4 sometimes drops the
 // colon, prefixing a quoted answer with a bare label. Strip the label

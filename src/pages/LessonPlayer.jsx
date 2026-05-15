@@ -23,10 +23,14 @@ const ASK_PROMPTS = {
     ru: (q, opts) => `Вот вопрос:\n\n«${q}»${opts ? `\n\nВарианты: ${opts}` : ''}\n\nПомоги разобрать: что спрашивают и как рассуждать?`,
     en: (q, opts) => `Here's the question I'm stuck on:\n\n"${q}"${opts ? `\n\nOptions: ${opts}` : ''}\n\nWalk me through it — what's it actually asking, and how should I think about it?`,
   },
+  // Wrong-answer prompt. Earlier wording ("Explain where I went wrong")
+  // got purely-empathic replies — Gemmi would say "don't worry, mistakes
+  // are how we learn!" and never actually explain why the right answer
+  // is right. Be explicit: skip the consolation, give the reasoning.
   wrong: {
-    kk: (q, opts, picked, correct) => `Сұрақ:\n\n"${q}"${opts ? `\n\nНұсқалар: ${opts}` : ''}\n\nМен «${picked}» дедім, бірақ дұрысы «${correct}» екен. Қателіктің мәнін түсіндір.`,
-    ru: (q, opts, picked, correct) => `Вопрос:\n\n«${q}»${opts ? `\n\nВарианты: ${opts}` : ''}\n\nЯ выбрал «${picked}», правильный ответ — «${correct}». Объясни, где я ошибся.`,
-    en: (q, opts, picked, correct) => `Question:\n\n"${q}"${opts ? `\n\nOptions: ${opts}` : ''}\n\nI picked "${picked}" but the right answer is "${correct}". Explain where I went wrong.`,
+    kk: (q, opts, picked, correct) => `Сұрақ:\n\n"${q}"${opts ? `\n\nНұсқалар: ${opts}` : ''}\n\nМен «${picked}» дедім, бірақ дұрысы «${correct}» екен. Жұбатпа — неге дұрыс жауап «${correct}» болатынын 1–2 қысқа сөйлеммен түсіндір. «Қателіктер — үйренудің бір бөлігі» деген жалпы сөзді айтпа.`,
+    ru: (q, opts, picked, correct) => `Вопрос:\n\n«${q}»${opts ? `\n\nВарианты: ${opts}` : ''}\n\nЯ выбрал «${picked}», правильный ответ — «${correct}». Не утешай — объясни 1–2 короткими фразами, почему правильный ответ — «${correct}». Без фраз «не переживай» и «ошибки помогают учиться».`,
+    en: (q, opts, picked, correct) => `Question:\n\n"${q}"${opts ? `\n\nOptions: ${opts}` : ''}\n\nI picked "${picked}" but the right answer is "${correct}". Skip the "don't worry" and explain in 1–2 short sentences WHY "${correct}" is right. No general "mistakes are part of learning" line — just the reasoning.`,
   },
 }
 

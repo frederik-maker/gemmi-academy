@@ -7,8 +7,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ChevronLeft, Download, Check, Loader2, Volume2, AlertTriangle, Mic } from 'lucide-react'
+import { ChevronLeft, Download, Check, Loader2, Volume2, AlertTriangle, Mic, RefreshCw } from 'lucide-react'
 import { useStore } from '../store.js'
+import { clearPiperBroken } from '../lib/voice.js'
 
 const STR = {
   title:    { kk: 'Офлайн дауыстар', ru: 'Офлайн-голоса', en: 'Offline voices' },
@@ -23,10 +24,16 @@ const STR = {
     en: 'Offline voices are an Android-app feature. On the web the browser\'s built-in voice is used.',
   },
   download: { kk: 'Жүктеу', ru: 'Скачать', en: 'Download' },
+  reinstall:{ kk: 'Қайта орнату', ru: 'Переустановить', en: 'Reinstall' },
   downloading: { kk: 'Жүктелуде…', ru: 'Загрузка…', en: 'Downloading…' },
   ready:    { kk: 'Орнатылған', ru: 'Установлен', en: 'Installed' },
   bundled:  { kk: 'Қосылған', ru: 'Встроен', en: 'Built in' },
   retry:    { kk: 'Қайта көру', ru: 'Повторить', en: 'Retry' },
+  brokenWarn: {
+    kk: 'Бұл дауыс соңғы рет ойнатқанда қосымшаны құлатты. Қайта орнатып көріңіз.',
+    ru: 'Этот голос крашил приложение при воспроизведении. Попробуйте переустановить.',
+    en: 'This voice crashed the app last time. Try reinstalling — it wipes the file and re-downloads.',
+  },
   langName: {
     kk: { kk: 'Қазақша', ru: 'Қазақша', en: 'Kazakh' },
     ru: { kk: 'Орысша', ru: 'Русский', en: 'Russian' },
@@ -75,11 +82,27 @@ export default function VoiceSetup() {
       })
       setPhases((p) => ({ ...p, [l]: 'done' }))
       setStates((s) => ({ ...s, [l]: { ...s[l], state: 'ready' } }))
+      // A successful re-extract overwrites whatever bad state crashed
+      // sherpa-onnx last time. Clear the "broken" flag so speak() will
+      // try Piper again.
+      clearPiperBroken(l)
+      setBrokenLangs((b) => ({ ...b, [l]: false }))
     } catch (e) {
       setErrors((er) => ({ ...er, [l]: e?.message || 'download_failed' }))
       setPhases((p) => ({ ...p, [l]: 'error' }))
     }
   }
+
+  // Show a "Reinstall" affordance on ALL voices marked as broken (Piper
+  // crashed previously) AND let the user reinstall any installed voice
+  // anyway in case the install is silently bad.
+  const [brokenLangs, setBrokenLangs] = useState({})
+  useEffect(() => {
+    if (typeof localStorage === 'undefined') return
+    const broken = {}
+    for (const l of LANGS) broken[l] = !!localStorage.getItem(`gemmi-piper-broken:${l}`)
+    setBrokenLangs(broken)
+  }, [])
 
   return (
     <div className="pb-24">
@@ -143,12 +166,28 @@ export default function VoiceSetup() {
                       <div className="text-xs font-semibold text-ink-500 mt-0.5">{sizeMb} MB</div>
                     )}
                   </div>
-                  <div className="flex-shrink-0">
+                  <div className="flex-shrink-0 flex items-center gap-2">
                     {phase === 'done' && (
-                      <div className="flex items-center gap-1 text-leaf-600 text-xs font-extrabold">
-                        <Check className="w-4 h-4" strokeWidth={3} />
-                        {isBundled ? STR.bundled[lang] : STR.ready[lang]}
-                      </div>
+                      <>
+                        <div className="flex items-center gap-1 text-leaf-600 text-xs font-extrabold">
+                          <Check className="w-4 h-4" strokeWidth={3} />
+                          {isBundled ? STR.bundled[lang] : STR.ready[lang]}
+                        </div>
+                        {/* Reinstall is always available — covers the case
+                            where the install is "ready" on disk but
+                            actually broken (Piper crashed on speak).
+                            Hidden for the bundled kk voice since reinstall
+                            just re-stages from APK assets anyway. */}
+                        {!isBundled && (
+                          <button
+                            onClick={() => startDownload(l)}
+                            aria-label={STR.reinstall[lang]}
+                            className="w-7 h-7 rounded-full bg-ink-100 hover:bg-ink-200 text-ink-600 grid place-items-center"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" strokeWidth={2.5} />
+                          </button>
+                        )}
+                      </>
                     )}
                     {phase === 'downloading' && (
                       <Loader2 className="w-5 h-5 text-steppe-500 animate-spin" />
@@ -164,6 +203,12 @@ export default function VoiceSetup() {
                     )}
                   </div>
                 </div>
+                {brokenLangs[l] && phase !== 'downloading' && (
+                  <div className="mt-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 text-xs font-bold flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <span>{STR.brokenWarn[lang]}</span>
+                  </div>
+                )}
 
                 {phase === 'downloading' && (
                   <div className="mt-3">
