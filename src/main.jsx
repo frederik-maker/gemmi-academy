@@ -18,25 +18,17 @@ import '@fontsource/nunito/cyrillic-700.css'
 import '@fontsource/nunito/cyrillic-800.css'
 import 'katex/dist/katex.min.css'
 import { bootSmokeTest } from './lib/nativeBoot.js'
-import { setupPiperTts } from './lib/piperTts.js'
 import { setupNativeTutor } from './lib/nativeTutor.js'
-import { reapStaleAttemptMarkers } from './lib/voice.js'
 
-// Reap any Piper "speak in progress" markers left behind by a prior boot.
-// If a marker survived a relaunch, sherpa-onnx SIGSEGV'd during that
-// utterance — flag the lang as broken so we skip Piper until reinstall.
-// Must run BEFORE setupPiperTts so the broken-lang check is in place
-// before any UI can trigger speak().
-reapStaleAttemptMarkers()
 // On the Capacitor APK: ping the Kotlin Hello plugin once and log the
 // round-trip result. No-op on web. Proves the native bridge is alive
-// before any real (heavy) on-device plugin tries to use the same wiring.
+// before the on-device LiteRT plugin tries to use the same wiring.
 bootSmokeTest()
-// Register window.PiperTts and window.GemmiTutor on native so the rest of
-// the app can route to the on-device sherpa-onnx and LiteRT backends when
-// they're set up. Both are no-ops on web; both fail soft on native so the
-// cloud + Web-Speech paths remain authoritative.
-setupPiperTts().catch(() => {})
+// Register window.GemmiTutor on native so the rest of the app can route
+// to the on-device LiteRT-LM Gemma backend when set up. No-op on web;
+// fails soft on native so the cloud path remains authoritative. (The
+// Piper TTS plugin used to live here too — removed; we rely on Android's
+// built-in TextToSpeech now.)
 setupNativeTutor().catch(() => {})
 
 ReactDOM.createRoot(document.getElementById('root')).render(

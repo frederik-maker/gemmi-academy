@@ -702,9 +702,8 @@ function MessageBubble({ message, lang, onOpenLesson }) {
 }
 
 // Small play icon inline with each assistant message. Tapping plays the
-// message through speak(), which prefers Piper (sherpa-onnx, offline)
-// when the requested-lang voice has been downloaded or is bundled
-// (kk-KZ is bundled in the APK), and falls back to Web Speech otherwise.
+// message through speak(), which uses Android's built-in TextToSpeech on
+// native and falls back to the Web Speech API on web.
 function SpeakButton({ text, lang }) {
   const [playing, setPlaying] = useState(false)
   const [problem, setProblem] = useState(null)

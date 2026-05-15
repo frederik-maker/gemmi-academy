@@ -1,17 +1,22 @@
 # Native plugins
 
-Three Capacitor Kotlin plugins, all running on-device with no network at
-inference time. Each is opt-in: nothing is bundled into the APK, and the
-APK works fully without any of them (Web Speech + cloud Gemini).
+Two Capacitor Kotlin plugins. Both are opt-in: the APK works fully
+without either (cloud Gemini + Android built-in TextToSpeech).
 
 | Plugin | File | Backend | Model size | Trigger |
 |---|---|---|---|---|
 | `Hello` | `HelloPlugin.kt` | — | — | Boot smoke test, see `src/lib/nativeBoot.js`. Prints `hello from kotlin` to the WebView console so we can verify the Kotlin↔JS bridge is alive before piling real work on it. |
-| `PiperTts` | `PiperTtsPlugin.kt` + `PiperEngine.kt` + `AudioStreamer.kt` + `VoiceDownloader.kt` | sherpa-onnx 1.13.1 (VITS / Piper) | 25–70 MB per voice | Profile → **Offline voices** → Download. Streams synth via AudioTrack PCM_FLOAT. |
-| `GemmiTutor` | `GemmiTutorPlugin.kt` + `GemmaRuntime.kt` | MediaPipe Tasks GenAI 0.10.24 (LiteRT LLM) | ~580 MB int4 | Profile → **Run Gemmi offline** → Download. Stateless completion via `generateResponseAsync(prompt, ProgressListener)`. |
+| `GemmiTutor` | `GemmiTutorPlugin.kt` + `GemmaRuntime.kt` | LiteRT-LM (Gemma 4 E2B-it) | ~2 GB int4 | Profile → **Run Gemmi offline** → Download. Stateless completion via `generate(prompt, onDelta)`. |
 
 `ModelDownloader.kt` is shared: resumable HTTP downloader with sha256
 verification, retry-on-failure, and per-chunk progress events.
+
+There used to also be a `PiperTts` plugin (on-device VITS / Piper TTS
+via sherpa-onnx) — removed. Downloaded voices SIGSEGV'd unpredictably in
+production with no recovery path. We rely on Android's built-in
+TextToSpeech now via `@capacitor-community/text-to-speech`. Works for
+en-US and ru-RU out of the box; for kk-KZ Android falls back to ru-RU
+(Cyrillic-readable, audibly off but the closest the OS ships).
 
 ## How it wires
 
@@ -24,30 +29,19 @@ android` and `gradlew assembleDebug`) does all the splicing:
 2. Drops `gemmi.gradle` into `android/app/` and appends a single
    `apply from: 'gemmi.gradle'` to `android/app/build.gradle`. That file
    applies `kotlin-android`, sets JVM target 17, restricts ABI to
-   `arm64-v8a` (the sherpa-onnx AAR has ~25 MB of `.so` per ABI), and
-   adds the three native deps (kotlinx-coroutines, commons-compress,
-   tasks-genai).
+   `arm64-v8a`, and adds the native deps (kotlinx-coroutines, litertlm).
 3. Replaces Java `MainActivity` with our Kotlin one that calls
    `registerPlugin(...)` for each plugin.
 4. Copies every `native/*.kt` into the package directory.
-5. Drops `voice.config.json` and `model.config.json` into Android assets.
-6. Downloads `sherpa-onnx-1.13.1.aar` (~54 MB, not on Maven Central) from
-   the k2-fsa GitHub release into `android/app/libs/`, verifies sha256,
-   and the `flatDir` repo in `gemmi.gradle` picks it up.
+5. Drops `model.config.json` into Android assets so `GemmiTutorPlugin`
+   can read the LiteRT model URL + sha256 at runtime.
 
 The script is idempotent — re-running on an already-wired tree does
 nothing destructive.
 
 ## JS-side surface
 
-Each plugin exposes a `window.*` object via `src/lib/{piperTts,nativeTutor,nativeBoot}.js`:
-
 ```js
-window.PiperTts.voiceState(lang)            // → { state: 'missing' | 'ready', sizeBytes }
-window.PiperTts.downloadVoice({ lang, onProgress })
-window.PiperTts.speak({ text, lang })       // streams via AudioTrack
-window.PiperTts.stop()
-
 window.GemmiTutor.deviceCaps()              // → { totalRamMb, recommendedVariant }
 window.GemmiTutor.modelState()
 window.GemmiTutor.downloadModel({ url, sha256, sizeBytes, onProgress })
@@ -55,18 +49,15 @@ window.GemmiTutor.generate({ prompt, onDelta })  // streams partial tokens
 window.GemmiTutor.cancel()
 ```
 
-On the web (or before the APK is built), every `window.*` is `undefined`
-and the rest of the app routes through Web Speech / cloud Gemini.
+On the web (or before the APK is built), `window.GemmiTutor` is
+`undefined` and the rest of the app routes through cloud Gemini.
 
 ## Fallback chain
 
 | Speech in | Native | Web fallback |
 |---|---|---|
-| kk-KZ output | sherpa-onnx Piper voice (16 kHz) | Web Speech → ru-RU (mispronounces Kazakh) |
-| ru-RU output | sherpa-onnx Piper voice (22 kHz) | Web Speech ru-RU |
-| en-US output | sherpa-onnx Piper voice (22 kHz) | Web Speech en-US |
-| Tutor reply | MediaPipe LiteRT (Gemma 3 1B int4) | Cloud Gemini 2.5 Flash |
+| TTS (any lang) | Android TextToSpeech (en-US, ru-RU; kk-KZ → ru-RU) | Web Speech API |
+| Tutor reply | LiteRT-LM (Gemma 4 E2B-it int4) | Cloud Gemma 4 26B-A4B |
 
-`voice.js` checks `voiceState(lang)` per-call; if the voice isn't
-downloaded, Web Speech runs. Same for `tutorProviders.nativeProvider`:
-it claims `available()` only after a verified download landed.
+`tutorProviders.nativeProvider` claims `available()` only after a
+verified Gemma model download landed; otherwise the cloud path runs.

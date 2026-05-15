@@ -6,14 +6,18 @@
 // (no auto-prompt for permission, getUserMedia going through WebChromeClient
 // that didn't surface the OS dialog).
 //
-// TTS (text-to-speech): three-layer fallback:
-//   1. Piper via window.PiperTts when the voice for `lang` is bundled
-//      (kk-KZ ships in the APK) or has been opt-in downloaded (en, ru).
-//   2. @capacitor-community/text-to-speech on native — wraps Android's
+// TTS (text-to-speech): two-layer fallback:
+//   1. @capacitor-community/text-to-speech on native — wraps Android's
 //      built-in TextToSpeech engine. Handles en-US and ru-RU out of the
 //      box on most devices, kk-KZ depends on the device's installed
-//      language packs.
-//   3. window.speechSynthesis on the web.
+//      language packs (usually falls through to ru-RU).
+//   2. window.speechSynthesis on the web.
+//
+// We previously had a Piper / sherpa-onnx on-device path with a bundled
+// kk-KZ voice + opt-in downloads for en / ru. It SIGSEGV'd unpredictably
+// in production, took the whole process down with each crash, and added
+// 45 MB to the APK. Removed entirely. Built-in Android TTS gets us
+// 90% of the value for 0 MB and zero crashes.
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 
@@ -387,61 +391,6 @@ function ensureVoices() {
   return _voicesPromise
 }
 
-// Crash-survival flags. sherpa-onnx can SIGSEGV during synthesize() if a
-// downloaded voice model is structurally invalid; the JVM dies, the app
-// dies, and on next launch we'd try again and crash again. We persist a
-// per-lang "attempt" marker in localStorage BEFORE every speak() — if it
-// survives across an app restart, we know that lang crashed Piper and we
-// flag it broken. Broken langs skip Piper entirely until the user
-// reinstalls the voice. Markers are checked + cleaned in main.jsx on
-// boot before any UI mounts.
-const ATTEMPT_KEY = (lang) => `gemmi-piper-attempt:${lang}`
-const BROKEN_KEY = (lang) => `gemmi-piper-broken:${lang}`
-
-export function reapStaleAttemptMarkers() {
-  if (typeof localStorage === 'undefined') return
-  // Any "attempt" key that survives a fresh boot means Piper crashed the
-  // process mid-speak. Mark that lang broken and clear the marker.
-  for (const lang of ['kk', 'ru', 'en']) {
-    if (localStorage.getItem(ATTEMPT_KEY(lang))) {
-      localStorage.setItem(BROKEN_KEY(lang), '1')
-      localStorage.removeItem(ATTEMPT_KEY(lang))
-    }
-  }
-}
-
-export function clearPiperBroken(lang) {
-  if (typeof localStorage === 'undefined') return
-  localStorage.removeItem(BROKEN_KEY(lang))
-}
-
-async function tryPiperSpeak(text, lang) {
-  const piper = typeof window !== 'undefined' ? window.PiperTts : null
-  if (!piper) return { ok: false, reason: 'no_piper' }
-  // Skip Piper if a prior session SIGSEGV'd on this lang.
-  if (typeof localStorage !== 'undefined' && localStorage.getItem(BROKEN_KEY(lang))) {
-    return { ok: false, reason: 'piper_broken_skip' }
-  }
-  try {
-    const st = await piper.voiceState(lang)
-    if (st?.state !== 'ready' && st?.state !== 'bundled') {
-      return { ok: false, reason: `voice_${st?.state || 'missing'}` }
-    }
-    // Plant the crash-survival marker BEFORE invoking native. localStorage
-    // writes are synchronous and durable, so even a SIGSEGV mid-speak
-    // leaves the marker behind for the next boot to see.
-    if (typeof localStorage !== 'undefined') localStorage.setItem(ATTEMPT_KEY(lang), String(Date.now()))
-    try {
-      await piper.speak({ text, lang })
-    } finally {
-      if (typeof localStorage !== 'undefined') localStorage.removeItem(ATTEMPT_KEY(lang))
-    }
-    return { ok: true }
-  } catch (e) {
-    return { ok: false, reason: e?.message || 'piper_speak_failed' }
-  }
-}
-
 async function tryNativeTts(text, lang) {
   const c = await cap()
   if (!c.native || !c.TextToSpeech) return { ok: false, reason: 'no_native_tts' }
@@ -484,20 +433,22 @@ async function tryWebSpeech(text, lang) {
   })
 }
 
+// Speak via Android's built-in TextToSpeech on native, or the browser's
+// Web Speech API on web. We dropped the on-device Piper TTS path: the
+// downloaded voice models (sherpa-onnx) SIGSEGV'd through every layer of
+// defense and there's no recovery path from a native crash. Native TTS is
+// good enough — Android ships en-US and ru-RU voices on most devices, and
+// for Kazakh it falls back to ru-RU which is at least Cyrillic-readable.
 export async function speak(text, lang) {
   const clean = String(text).replace(/\$+/g, '').replace(/```[\s\S]*?```/g, '').trim()
   if (!clean) return { engine: 'none', reason: 'empty_text' }
 
-  // Stop whatever's playing on any engine first.
-  try { window.PiperTts?.stop() } catch {}
+  // Stop whatever's playing first.
   if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel()
   try {
     const c = await cap()
     if (c.TextToSpeech) await c.TextToSpeech.stop()
   } catch {}
-
-  const piper = await tryPiperSpeak(clean, lang)
-  if (piper.ok) return { engine: 'piper' }
 
   const native = await tryNativeTts(clean, lang)
   if (native.ok) return { engine: 'native_tts' }
@@ -505,11 +456,10 @@ export async function speak(text, lang) {
   const web = await tryWebSpeech(clean, lang)
   if (web.ok) return { engine: 'webspeech' }
 
-  return { engine: 'none', reason: piper.reason + ' / ' + native.reason + ' / ' + web.reason }
+  return { engine: 'none', reason: native.reason + ' / ' + web.reason }
 }
 
 export function stopSpeaking() {
-  try { window.PiperTts?.stop() } catch {}
   if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel()
   cap().then((c) => { try { c.TextToSpeech?.stop() } catch {} }).catch(() => {})
 }

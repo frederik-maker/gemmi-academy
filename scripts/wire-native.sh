@@ -2,21 +2,23 @@
 # Wires native/ Kotlin sources into the Capacitor-generated android/ tree.
 #
 # Capacitor 8's `cap add android` produces a Java-only scaffold. To run
-# Kotlin (which we need for sherpa-onnx + MediaPipe LiteRT), we have to:
+# Kotlin (which we need for LiteRT-LM), we have to:
 #   1. Add the Kotlin Gradle plugin to the root buildscript classpath.
 #   2. Apply `kotlin-android` to the app module and set JVM target.
 #   3. Replace the generated Java MainActivity with our Kotlin one that
 #      registers our plugins.
 #   4. Drop our .kt sources into the package directory.
-#   5. Fetch the sherpa-onnx AAR (~56 MB, not on Maven Central) from the
-#      k2-fsa/sherpa-onnx GitHub release, verify its sha256, and drop it
-#      into android/app/libs/ so the flatDir repo in gemmi.gradle resolves
-#      `implementation(name: 'sherpa-onnx-1.13.1', ext: 'aar')`.
-#   6. Copy native/voice.config.json into android/app/src/main/assets/ so
-#      the PiperTts plugin can read it at runtime.
+#   5. Copy native/model.config.json into android/app/src/main/assets/ so
+#      the GemmiTutor plugin (LiteRT) can read it at runtime.
 #
 # Run this AFTER `cap add android` and BEFORE `./gradlew assembleDebug`.
 # Idempotent: re-running on an already-wired tree does nothing destructive.
+#
+# Previously this script also fetched the sherpa-onnx AAR (~56 MB) and
+# extracted a Kazakh Piper TTS voice (~26 MB) into APK assets. Removed:
+# sherpa-onnx SIGSEGV'd on downloaded voices in production and we now
+# rely entirely on Android's built-in TextToSpeech. Cuts ~80 MB off the
+# APK + ~56 MB off every CI run.
 
 set -euo pipefail
 
@@ -33,8 +35,6 @@ LIBS="$ANDROID/app/libs"
 # Kotlin compilers refuse to read AAR metadata FROM a newer version than
 # they implement (the inverse is fine).
 KOTLIN_VERSION="2.3.10"
-SHERPA_VERSION="1.13.1"
-SHERPA_SHA256="3a9b8dd27a95463c7878abf1444baaaa9c99d6fefdb21b2c11ff5ecd2a6e8ddd"
 
 step() { printf "\n\033[1;36m▸\033[0m %s\n" "$*"; }
 fail() { printf "\033[1;31m✗\033[0m %s\n" "$*" >&2; exit 1; }
@@ -190,74 +190,16 @@ for f in "$NATIVE"/*.kt; do
 done
 
 # ---------------------------------------------------------------------------
-# 5. Copy native/voice.config.json into Android assets so PiperTtsPlugin's
-#    onLoad can read it.
+# 5. Copy native/model.config.json into Android assets so GemmiTutorPlugin
+#    (LiteRT) can read it at runtime.
 # ---------------------------------------------------------------------------
-step "Installing config JSONs into Android assets"
+step "Installing model.config.json into Android assets"
 mkdir -p "$ASSETS"
-for f in voice.config.json model.config.json; do
-  if [[ -f "$NATIVE/$f" ]]; then
-    cp "$NATIVE/$f" "$ASSETS/$f"
-    echo "    ✓ wrote $f"
-  else
-    echo "    ⚠ native/$f missing; the corresponding plugin will fail at runtime"
-  fi
-done
-
-step "Bundling kk-KZ Piper voice into APK assets"
-# The kk voice tarball (26 MB) is fetched + extracted into the APK so
-# Kazakh TTS works out of the box on first launch — no setup tap, no
-# 25 MB download. Other voices (en/ru) stay opt-in via PiperTts.downloadVoice
-# because Web Speech already handles them well.
-KK_TAR="$NATIVE/.voice-kk.tar.bz2"
-KK_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-kk_KZ-iseke-x_low.tar.bz2"
-KK_SHA="1a995dd9a0e0760942af5c7a3d84a688344ddb17dc51e95942848f855c9347eb"
-KK_ASSETS="$ASSETS/voices/kk"
-if [[ -f "$KK_ASSETS/model.onnx" ]] && [[ -f "$KK_ASSETS/tokens.txt" ]]; then
-  echo "    ✓ kk voice already extracted in assets"
+if [[ -f "$NATIVE/model.config.json" ]]; then
+  cp "$NATIVE/model.config.json" "$ASSETS/model.config.json"
+  echo "    ✓ wrote model.config.json"
 else
-  if [[ ! -f "$KK_TAR" ]] || [[ "$(sha256_of "$KK_TAR")" != "$KK_SHA" ]]; then
-    curl -fSL --retry 3 --retry-delay 2 -o "$KK_TAR" "$KK_URL"
-    if [[ "$(sha256_of "$KK_TAR")" != "$KK_SHA" ]]; then
-      rm -f "$KK_TAR"
-      fail "sha256 mismatch on kk voice tarball"
-    fi
-  fi
-  rm -rf "$KK_ASSETS"
-  mkdir -p "$KK_ASSETS"
-  # Strip the leading "vits-piper-kk_KZ-iseke-x_low/" segment with --strip 1.
-  tar -xjf "$KK_TAR" -C "$KK_ASSETS" --strip-components=1
-  # Sherpa-onnx looks for model.onnx by stable name; some voices ship it
-  # with the voice id baked in.
-  if [[ ! -f "$KK_ASSETS/model.onnx" ]]; then
-    onnx=$(find "$KK_ASSETS" -maxdepth 1 -name '*.onnx' -print -quit)
-    [[ -n "$onnx" ]] && mv "$onnx" "$KK_ASSETS/model.onnx"
-  fi
-  echo "    ✓ extracted to $KK_ASSETS ($(du -sh "$KK_ASSETS" | cut -f1))"
-fi
-
-# ---------------------------------------------------------------------------
-# 6. Fetch sherpa-onnx-$SHERPA_VERSION.aar from the k2-fsa GitHub release
-#    into android/app/libs/. We verify sha256 to avoid shipping a corrupt
-#    or mismatched native lib. ~56 MB download; CI caches it via the
-#    runner's network egress (no further caching wired yet — fine because
-#    every CI run starts from scratch anyway).
-# ---------------------------------------------------------------------------
-step "Fetching sherpa-onnx $SHERPA_VERSION AAR"
-mkdir -p "$LIBS"
-AAR="$LIBS/sherpa-onnx-$SHERPA_VERSION.aar"
-URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/v$SHERPA_VERSION/sherpa-onnx-$SHERPA_VERSION.aar"
-
-if [[ -f "$AAR" ]] && [[ "$(sha256_of "$AAR")" == "$SHERPA_SHA256" ]]; then
-  echo "    ✓ already present and sha256 matches"
-else
-  curl -fSL --retry 3 --retry-delay 2 -o "$AAR" "$URL"
-  got="$(sha256_of "$AAR")"
-  if [[ "$got" != "$SHERPA_SHA256" ]]; then
-    rm -f "$AAR"
-    fail "sha256 mismatch on sherpa-onnx-$SHERPA_VERSION.aar: expected $SHERPA_SHA256 got $got"
-  fi
-  echo "    ✓ downloaded $(du -h "$AAR" | cut -f1)"
+  echo "    ⚠ native/model.config.json missing; GemmiTutor plugin will fail at runtime"
 fi
 
 step "Wiring complete. Run: cd android && ./gradlew assembleDebug"
