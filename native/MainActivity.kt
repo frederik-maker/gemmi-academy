@@ -32,7 +32,6 @@ import com.getcapacitor.BridgeActivity
 class MainActivity : BridgeActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     registerPlugin(HelloPlugin::class.java)
-    registerPlugin(PiperTtsPlugin::class.java)
     registerPlugin(GemmiTutorPlugin::class.java)
     super.onCreate(savedInstanceState)
 
