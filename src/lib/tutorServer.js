@@ -23,30 +23,27 @@ import { TUTOR_TOOLS, executeTool } from './tutorTools.js'
 // A short, paragraph-style prompt with persona + format gives the lowest
 // observed leak rate (~8-10%). Negative rules ("don't say X") consistently
 // make leaks worse — never add them.
+// Honestly tested 6 prompt shapes for Gemma 4 26B-A4B; the model has a
+// baked-in "think out loud" habit and leaks something in every case:
+//   - Full imperative prompt → paraphrases the rules
+//   - Pure persona → narrates being a tutor
+//   - No prompt, with tools → narrates tool usage ("find_lessons found nothing")
+//   - No prompt, no tools → verbalizes the task itself
+//   - Few-shot Q/A examples → meta-analyzes the examples
+//   - JSON schema → clean but model hallucinates tool data instead of calling
+// The full-imperative prompt + scrubber + silent retry gave the lowest
+// observed leak rate (~10%). It's not great but it's what we ship.
+// Switching off Gemma 4 (e.g. to Gemini 2.5 Flash with thinkingBudget=0)
+// would fix it cleanly but breaks the hackathon's "Gemma 4 end-to-end"
+// narrative.
 const SYSTEM_PROMPT = `You are Gemmi, a kind K-12 tutor talking with a child. Speak to the child in their language in 1–3 short sentences. Use $...$ for inline math and $$...$$ for display math.`
 
-// Appended to the system instruction per request. Keeping the per-
-// conversation bits OUT of the user turn array stops Gemma 4 from
-// treating them as a message it should respond to.
+// Per-conversation context appended to the system instruction. Without it
+// the model second-guesses ("Even though they are grade 2..." then no answer).
 function perStudentContext(s) {
   const langName = ({ kk: 'Kazakh', ru: 'Russian', en: 'English' }[s?.lang]) || 'English'
   const grade = Number.isFinite(s?.grade) ? s.grade : 2
   return `\n\nThe student writes in ${langName} and is at grade level ${grade}. Always reply in ${langName}.`
-}
-
-// Localized hint pushed as a fake user turn when the previous response
-// was chain-of-thought. Phrased as if the student is asking a follow-up
-// in their own language. An English meta-instruction was making the
-// Russian-locale model spiral into more English meta-narration.
-function retryHint(s) {
-  switch (s?.lang) {
-    case 'ru':
-      return 'Скажи просто, одной короткой фразой.'
-    case 'kk':
-      return 'Қарапайым тілмен, бір қысқа сөйлеммен айт.'
-    default:
-      return 'Just answer in one short sentence.'
-  }
 }
 
 
@@ -527,23 +524,9 @@ export async function handleTutorRequest(req, res) {
         model: 'gemma-4-26b-a4b-it',
         contents,
         config: {
-          // Per-request system instruction with the runtime lang + grade
-          // appended. This is the safe place to put per-conversation
-          // context — Gemma 4 treats systemInstruction differently from
-          // user turns and is much less prone to echoing it back.
-          // perStudentContext gives the model the lang+grade up front.
-          // Without it, the model second-guesses ("Even though they are
-          // grade 2, this is a very basic question..." then no answer).
-          // The NAME_FIELD_LEAK regex in the scrubber + LEAK_SIGNAL catch
-          // the "freddy's grade is 2" echoes that perStudentContext can
-          // produce.
           systemInstruction: SYSTEM_PROMPT + perStudentContext(studentState),
           tools: GEMINI_TOOLS,
           maxOutputTokens: 1500,
-          // 0.3 (was 0.7) — lower temperature halves the chain-of-thought
-          // leak rate on Gemma 4 26B-A4B in practice. The reply is still
-          // varied enough to feel natural without becoming a planning
-          // narration.
           temperature: 0.3,
         },
       })
