@@ -214,26 +214,60 @@ class PiperTtsPlugin : Plugin() {
           stageBundledVoice(lang)
         }
         val voiceDir = File(context.filesDir, "voices/$lang")
-        val engine = engines.getOrPut(lang) {
-          PiperEngine.load(
-            voiceDir = voiceDir,
-            numThreads = inference.optInt("numThreads", 2),
-            noiseScale = inference.optDouble("noiseScale", 0.667).toFloat(),
-            noiseScaleW = inference.optDouble("noiseScaleW", 0.8).toFloat(),
-            lengthScale = inference.optDouble("lengthScale", 1.0).toFloat(),
-          )
+
+        // Pre-flight: validate the on-disk voice has the files we need.
+        // sherpa-onnx will SIGSEGV (not throw) on a partial extract, so a
+        // JS-visible rejection here is much better than the WebView going
+        // down with the process.
+        val modelFile = File(voiceDir, "model.onnx")
+        val tokensFile = File(voiceDir, "tokens.txt")
+        if (!modelFile.exists() || modelFile.length() < 1024) {
+          // Evict any cached engine; the file backing it is gone or bad.
+          engines.remove(lang)
+          throw IllegalStateException("voice_files_invalid: model.onnx ${if (modelFile.exists()) "too small" else "missing"} for $lang")
         }
+        if (!tokensFile.exists() || tokensFile.length() == 0L) {
+          engines.remove(lang)
+          throw IllegalStateException("voice_files_invalid: tokens.txt ${if (tokensFile.exists()) "empty" else "missing"} for $lang")
+        }
+
+        val engine = try {
+          engines.getOrPut(lang) {
+            PiperEngine.load(
+              voiceDir = voiceDir,
+              numThreads = inference.optInt("numThreads", 2),
+              noiseScale = inference.optDouble("noiseScale", 0.667).toFloat(),
+              noiseScaleW = inference.optDouble("noiseScaleW", 0.8).toFloat(),
+              lengthScale = inference.optDouble("lengthScale", 1.0).toFloat(),
+            )
+          }
+        } catch (e: Throwable) {
+          // PiperEngine.load() can throw before getOrPut caches; if it
+          // somehow leaves a partial entry, evict so a retry rebuilds.
+          engines.remove(lang)
+          throw e
+        }
+
         val player = AudioStreamer(engine.sampleRate())
         streamer = player
-        withContext(Dispatchers.Default) {
-          player.start()
-          engine.synthesize(
-            text = text,
-            onChunk = { samples -> player.write(samples) },
-            shouldContinue = { streamer === player },
-          )
-          player.endOfStream()
+        try {
+          withContext(Dispatchers.Default) {
+            player.start()
+            engine.synthesize(
+              text = text,
+              onChunk = { samples -> player.write(samples) },
+              shouldContinue = { streamer === player },
+            )
+            player.endOfStream()
+          }
+        } catch (e: Throwable) {
+          // Synthesis failure leaves the cached engine in an unknown
+          // state — evict so the next speak() rebuilds rather than
+          // reusing a broken JNI handle.
+          engines.remove(lang)
+          throw e
         }
+
         if (currentCall === call) {
           call.resolve()
           currentCall = null

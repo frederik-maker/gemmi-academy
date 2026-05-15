@@ -466,20 +466,28 @@ export default function TutorChat({ open, onClose, context, autoAsk }) {
 
               {streaming && (
                 <div className="space-y-2 relative">
-                  {streamingTools.map((t, i) => <ToolCallChip key={i} tool={t} lang={lang} />)}
-                  {streamingText && (
-                    <AssistantBubble>
-                      <LatexText>{streamingText}</LatexText>
-                      <span className="inline-block w-1.5 h-3.5 bg-steppe-500 ml-1 animate-pulse align-middle" />
-                    </AssistantBubble>
+                  {/* Tool chips stack compactly above the bubble. Matches the
+                      finished-message layout so the only thing changing during
+                      streaming is the bubble's inner content — the mascot
+                      stays anchored. Earlier versions hid the bubble while a
+                      tool was running, which made the mascot pop in and out. */}
+                  {streamingTools.length > 0 && (
+                    <div className="ml-10 space-y-1.5">
+                      {streamingTools.map((t, i) => <ToolCallChip key={i} tool={t} lang={lang} compact />)}
+                    </div>
                   )}
-                  {!streamingText && streamingTools.length === 0 && (
-                    <AssistantBubble>
+                  <AssistantBubble>
+                    {streamingText ? (
+                      <>
+                        <LatexText>{streamingText}</LatexText>
+                        <span className="inline-block w-1.5 h-3.5 bg-steppe-500 ml-1 animate-pulse align-middle" />
+                      </>
+                    ) : (
                       <span className="flex items-center gap-2 text-ink-500">
                         <Loader2 className="w-4 h-4 animate-spin" /> {STR.thinking[lang]}
                       </span>
-                    </AssistantBubble>
-                  )}
+                    )}
+                  </AssistantBubble>
                 </div>
               )}
 

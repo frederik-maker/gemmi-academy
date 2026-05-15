@@ -104,7 +104,15 @@ export default function Onboarding() {
           </Step>}
         </div>
 
-        <div className="sticky bottom-4">
+        {/* Sticky CTA. `bottom-4` alone sits flush against the gesture
+            pill on edge-to-edge Androids — sticky positioning ignores
+            the wrapper's padding-bottom and is measured from the visual
+            viewport edge. Inline the safe-area inset on the sticky
+            element itself. */}
+        <div
+          className="sticky"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
+        >
           {step < TOTAL_STEPS - 1 ? (
             <button
               disabled={step === 2 && name.trim().length < 1}
